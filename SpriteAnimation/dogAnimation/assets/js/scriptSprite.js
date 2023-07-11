@@ -12,7 +12,7 @@ const CANVAS_HEIGHT = canvas.height = 600;
 // Essas linhas criam um novo objeto Image() e atribuem o caminho da imagem 'shadow_dog.png' à
 // propriedade src do objeto playerImage. Isso carrega a imagem do arquivo 'shadow_dog.png'.
 const playerImage = new Image();
-playerImage.src = 'shadow_dog.png';
+playerImage.src = './assets/imgs/shadow_dog.png';
 
 // 6876/12 = (573 + 2)
 // Largura da imagem que é 6876 e quantidade de animação na horizontal que é 12
