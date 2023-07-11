@@ -1,9 +1,5 @@
 // Escolher a posição
 let playerState = 'idle';
-const dropdown = document.getElementById("animations");
-dropdown.addEventListener('change', function (e) {
-    playerState = e.target.value;
-})
 
 const canvas = document.getElementById('canvas1');
 // O contexto 2D é usado para realizar operações de desenho no canvas.

@@ -1,3 +1,8 @@
+const dropdown = document.getElementById("animations");
+
+dropdown.addEventListener('change', function (e) {
+    playerState = e.target.value;
+})
 
 animationStates.forEach((animation) => {
     console.log(animation)
