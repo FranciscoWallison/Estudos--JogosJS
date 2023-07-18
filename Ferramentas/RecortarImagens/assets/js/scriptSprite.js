@@ -172,33 +172,33 @@
             spriteWidth, spriteHeight
         )
         const animationItem = animationStates.find(({ name }) => name === playerState);
-            //  // Obtenha a nova imagem cortada como um Data URL
-            //  var croppedImageDataURL = canvas.toDataURL();
+         // Obtenha a nova imagem cortada como um Data URL
+         let croppedImageDataURL = canvas.toDataURL();
+
+         // Crie um link de download
+         let downloadLink = document.createElement('a');
+         downloadLink.href = croppedImageDataURL;
     
-            //  // Crie um link de download
-            //  var downloadLink = document.createElement('a');
-            //  downloadLink.href = croppedImageDataURL;
-     
-            //  // Defina o nome do arquivo de imagem
-            //  var fileName = `${playerState}_${position}.jpg`;
-            //  downloadLink.download = fileName;
-     
-            //  // Adicione o link de download à página
-            //  document.body.appendChild(downloadLink);
-     
-            //  // Simule o clique no link para iniciar o download
-            //  downloadLink.click();
+         // Defina o nome do arquivo de imagem
+         let fileName = `${playerState}_${position}.jpg`;
+         downloadLink.download = fileName;
+    
+         // Adicione o link de download à página
+         document.body.appendChild(downloadLink);
+    
+         // Simule o clique no link para iniciar o download
+         downloadLink.click();
         
-        // if ((position+1) >= animationItem.frames) {
-        //     console.log("position_1: ", (position+1) === animationItem.frames, (position+1) , animationItem.frames)
+        if ((position+1) >= animationItem.frames) {
+            console.log("position_1: ", (position+1) === animationItem.frames, (position+1) , animationItem.frames)
     
-        // }else{
+        }else{
             console.log("position_2: ", (position+1) === animationItem.frames, (position+1) , animationItem.frames)
     
            
             gameFrame++;
             requestAnimationFrame(animation)
-        // }
+        }
         
     }
       
