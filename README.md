@@ -1,4 +1,4 @@
-
+# Projeto com objetivo de trinar animação com html, css e javascript.
 
 ## O que é a tag's canvas
 ````
