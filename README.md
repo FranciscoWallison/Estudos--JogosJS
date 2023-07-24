@@ -1,4 +1,4 @@
-# Projeto com objetivo de treinar animação com html, css e javascript.
+# Projeto com objetivo de treinar animação com javascript.
 
 ## O que é a tag's canvas
 ````
