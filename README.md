@@ -1,5 +1,9 @@
 # Projeto com objetivo de treinar animação com javascript.
 
+## Link's uteis 
+https://itch.io/games/html5
+
+
 ## O que é a tag's canvas
 ````
     HTML Canvas: O elemento <canvas> é uma área retangular em uma página HTML onde você pode desenhar 
