@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { Game } from '../utils/game';
+import charactersConfig from '../data/data.json';
 
 export default function GameCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -7,13 +8,7 @@ export default function GameCanvas() {
 
   useEffect(() => {
     if (canvasRef.current) {
-      const fetchData = async () => {
-        const response = await fetch('/data.json');
-        const result = await response.json();
-
-        gameRef.current = new Game(canvasRef.current, result);
-      };
-      fetchData();
+      gameRef.current = new Game(canvasRef.current, charactersConfig);
     }
   }, []);
 
