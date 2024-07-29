@@ -1,4 +1,4 @@
-import { Sprite } from "./character";
+import { Sprite } from './character';
 
 /**
  * Class representing a player in the game.
@@ -6,12 +6,13 @@ import { Sprite } from "./character";
 export class Player {
   x: number;
   y: number;
-  direction: "down" | "right" | "up" | "left";
+  direction: 'down' | 'right' | 'up' | 'left';
   frameIndex: number;
   isMoving: boolean;
   lastFrameTime: number;
   scaledSize: number;
   isDead: boolean;
+  isDeadComplete: boolean;
 
   /**
    * Creates a player instance.
@@ -22,12 +23,13 @@ export class Player {
   constructor(x: number, y: number, scaledSize: number) {
     this.x = x;
     this.y = y;
-    this.direction = "down";
+    this.direction = 'down';
     this.frameIndex = 0;
     this.isMoving = false;
     this.lastFrameTime = 0;
     this.scaledSize = scaledSize;
     this.isDead = false;
+    this.isDeadComplete = false;
   }
 
   /**
@@ -39,24 +41,24 @@ export class Player {
     if (this.isDead) return;
 
     switch (key) {
-      case "ArrowDown":
-      case "s":
-        this.direction = "down";
+      case 'ArrowDown':
+      case 's':
+        this.direction = 'down';
         this.isMoving = isKeyDown;
         break;
-      case "ArrowRight":
-      case "d":
-        this.direction = "right";
+      case 'ArrowRight':
+      case 'd':
+        this.direction = 'right';
         this.isMoving = isKeyDown;
         break;
-      case "ArrowUp":
-      case "w":
-        this.direction = "up";
+      case 'ArrowUp':
+      case 'w':
+        this.direction = 'up';
         this.isMoving = isKeyDown;
         break;
-      case "ArrowLeft":
-      case "a":
-        this.direction = "left";
+      case 'ArrowLeft':
+      case 'a':
+        this.direction = 'left';
         this.isMoving = isKeyDown;
         break;
     }
@@ -68,6 +70,7 @@ export class Player {
    */
   setDeathState(isDead: boolean): void {
     this.isDead = isDead;
+    this.isDeadComplete = false;
     this.frameIndex = 0;
   }
 
@@ -78,16 +81,16 @@ export class Player {
   updatePosition(movementSpeed: number): void {
     if (this.isMoving && !this.isDead) {
       switch (this.direction) {
-        case "down":
+        case 'down':
           this.y += movementSpeed;
           break;
-        case "right":
+        case 'right':
           this.x += movementSpeed;
           break;
-        case "up":
+        case 'up':
           this.y -= movementSpeed;
           break;
-        case "left":
+        case 'left':
           this.x -= movementSpeed;
           break;
       }
@@ -100,19 +103,15 @@ export class Player {
    * @param animationSpeed - The speed of the animation.
    * @param timestamp - The current timestamp.
    */
-  updateAnimation(
-    animations: Sprite[],
-    animationSpeed: number,
-    timestamp: number
-  ): void {
+  updateAnimation(animations: Sprite[], animationSpeed: number, timestamp: number): void {
     if (this.isMoving || this.isDead) {
       if (timestamp - this.lastFrameTime > animationSpeed) {
         this.frameIndex = (this.frameIndex + 1) % animations.length;
         this.lastFrameTime = timestamp;
 
         if (this.isDead && this.frameIndex === animations.length - 1) {
-          this.isDead = false;
-          this.frameIndex = 0;
+          this.isDeadComplete = true;
+          this.isMoving = false;
         }
       }
     } else {

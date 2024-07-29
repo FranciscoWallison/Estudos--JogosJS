@@ -1,5 +1,5 @@
-import { Character, CharacterConfig } from "./character";
-import { Player } from "./player";
+import { Character, CharacterConfig } from './character';
+import { Player } from './player';
 
 /**
  * Class representing the game.
@@ -18,19 +18,19 @@ export class Game {
 
   /**
    * Creates a game instance.
-   * @param canvasId - The ID of the canvas element.
+   * @param canvas - The canvas element.
    * @param charactersConfig - The configurations for the characters.
    */
   constructor(canvas: HTMLCanvasElement, charactersConfig: CharacterConfig[]) {
     this.canvas = canvas;
-    this.ctx = this.canvas.getContext("2d") as CanvasRenderingContext2D;
+    this.ctx = this.canvas.getContext('2d') as CanvasRenderingContext2D;
     this.SPRITE_SIZE = 16;
     this.SCALE = 2;
     this.SCALED_SIZE = this.SPRITE_SIZE * this.SCALE;
     this.MOVEMENT_SPEED = 2;
     this.ANIMATION_SPEED = 100;
 
-    this.characters = charactersConfig.map((config) => new Character(config));
+    this.characters = charactersConfig.map(config => new Character(config));
     this.currentCharacterIndex = 0;
     this.player = new Player(
       this.canvas.width / 2 - this.SCALED_SIZE / 2,
@@ -38,10 +38,8 @@ export class Game {
       this.SCALED_SIZE
     );
 
-    document.addEventListener("keydown", (event) =>
-      this.handleKey(event, true)
-    );
-    document.addEventListener("keyup", (event) => this.handleKey(event, false));
+    document.addEventListener('keydown', (event) => this.handleKey(event, true));
+    document.addEventListener('keyup', (event) => this.handleKey(event, false));
 
     this.characters[0].image.onload = () => {
       this.gameLoop();
@@ -80,14 +78,8 @@ export class Game {
     this.player.updatePosition(this.MOVEMENT_SPEED);
     const currentAnimations = this.player.isDead
       ? this.characters[this.currentCharacterIndex].animations.death
-      : this.characters[this.currentCharacterIndex].animations[
-          this.player.direction
-        ];
-    this.player.updateAnimation(
-      currentAnimations,
-      this.ANIMATION_SPEED,
-      timestamp
-    );
+      : this.characters[this.currentCharacterIndex].animations[this.player.direction];
+    this.player.updateAnimation(currentAnimations, this.ANIMATION_SPEED, timestamp);
   }
 
   /**
@@ -102,32 +94,20 @@ export class Game {
     const sprite = currentAnimations[this.player.frameIndex];
 
     if (sprite) {
-      if (this.player.direction === "left" && !this.player.isDead) {
+      if (this.player.direction === 'left' && !this.player.isDead) {
         this.ctx.save();
         this.ctx.scale(-1, 1);
         this.ctx.drawImage(
           character.image,
-          sprite.x,
-          sprite.y,
-          this.SPRITE_SIZE,
-          this.SPRITE_SIZE,
-          -this.player.x - this.SCALED_SIZE,
-          this.player.y,
-          this.SCALED_SIZE,
-          this.SCALED_SIZE
+          sprite.x, sprite.y, this.SPRITE_SIZE, this.SPRITE_SIZE,
+          -this.player.x - this.SCALED_SIZE, this.player.y, this.SCALED_SIZE, this.SCALED_SIZE
         );
         this.ctx.restore();
       } else {
         this.ctx.drawImage(
           character.image,
-          sprite.x,
-          sprite.y,
-          this.SPRITE_SIZE,
-          this.SPRITE_SIZE,
-          this.player.x,
-          this.player.y,
-          this.SCALED_SIZE,
-          this.SCALED_SIZE
+          sprite.x, sprite.y, this.SPRITE_SIZE, this.SPRITE_SIZE,
+          this.player.x, this.player.y, this.SCALED_SIZE, this.SCALED_SIZE
         );
       }
     }

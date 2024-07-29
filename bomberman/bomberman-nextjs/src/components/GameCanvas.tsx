@@ -1,7 +1,5 @@
-import { useEffect, useRef } from "react";
-import { Game } from "../utils/game";
-
-// const charactersConfig = 
+import { useEffect, useRef } from 'react';
+import { Game } from '../utils/game';
 
 export default function GameCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -9,13 +7,13 @@ export default function GameCanvas() {
 
   useEffect(() => {
     if (canvasRef.current) {
-      const formatDataStep5 = async () => {
-        const response = await fetch("/data.json");
+      const fetchData = async () => {
+        const response = await fetch('/data.json');
         const result = await response.json();
 
         gameRef.current = new Game(canvasRef.current, result);
       };
-      formatDataStep5();
+      fetchData();
     }
   }, []);
 
