@@ -12,7 +12,7 @@ export class Player {
   lastFrameTime: number;
   scaledSize: number;
   isDead: boolean;
-  isDeadComplete: boolean;
+  deathCompleted: boolean;
 
   /**
    * Creates a player instance.
@@ -29,7 +29,7 @@ export class Player {
     this.lastFrameTime = 0;
     this.scaledSize = scaledSize;
     this.isDead = false;
-    this.isDeadComplete = false;
+    this.deathCompleted = false;
   }
 
   /**
@@ -70,7 +70,7 @@ export class Player {
    */
   setDeathState(isDead: boolean): void {
     this.isDead = isDead;
-    this.isDeadComplete = false;
+    this.deathCompleted = false;
     this.frameIndex = 0;
   }
 
@@ -104,14 +104,14 @@ export class Player {
    * @param timestamp - The current timestamp.
    */
   updateAnimation(animations: Sprite[], animationSpeed: number, timestamp: number): void {
-    if (this.isMoving || this.isDead) {
+    if ((this.isMoving || this.isDead) && !this.deathCompleted) {
       if (timestamp - this.lastFrameTime > animationSpeed) {
         this.frameIndex = (this.frameIndex + 1) % animations.length;
         this.lastFrameTime = timestamp;
 
         if (this.isDead && this.frameIndex === animations.length - 1) {
-          this.isDeadComplete = true;
-          this.isMoving = false;
+          this.deathCompleted = true;
+          this.frameIndex = animations.length - 1; // Stay on the last frame of the death animation
         }
       }
     } else {

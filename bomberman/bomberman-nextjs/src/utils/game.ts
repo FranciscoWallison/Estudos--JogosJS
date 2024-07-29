@@ -67,7 +67,7 @@ export class Game {
    * Tests the death animation of the player.
    */
   testDeath(): void {
-    this.player.setDeathState(true);
+    this.player.setDeathState(!this.player.isDead);
   }
 
   /**
