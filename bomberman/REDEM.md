@@ -1,3 +1,4 @@
+
 **Imagem de tamanho 304x547 pixels, com frames de 16x16 pixels.**
 
 **Total de 7 personagens.**
