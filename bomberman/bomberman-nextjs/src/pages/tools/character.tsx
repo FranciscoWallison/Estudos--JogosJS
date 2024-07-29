@@ -1,11 +1,11 @@
-import GameCanvas from '../components/GameCanvas';
+import GameCanvas from '@/components/GameCanvas';
 // import '@/styles/globals.css';
 
 
 export default function Home() {
   return (
     <div>
-      <h1>teste</h1>
+      <GameCanvas />
     </div>
   );
 }
