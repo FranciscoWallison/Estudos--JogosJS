@@ -1,5 +1,3 @@
-import { EXPORT_IMAGE } from '../utils/map';
-
 export interface Sprite {
   x: number;
   y: number;
@@ -107,29 +105,37 @@ export const bombSprites: BombSprites[] = [
   }
 ];
 
-const loadImage = (src: string): HTMLImageElement | undefined => {
-  if (typeof window !== 'undefined') {
+const loadImage = (src: string): Promise<HTMLImageElement> => {
+  return new Promise((resolve, reject) => {
     const img = new Image();
     img.src = src;
-    return img;
-  }
-  return undefined;
-};
-
-export const loadSprites = () => {
-  playerSprites.forEach(sprite => {
-    sprite.image = loadImage(sprite.imageSrc);
-  });
-
-  enemySprites.forEach(sprite => {
-    sprite.image = loadImage(sprite.imageSrc);
-  });
-
-  bombSprites.forEach(sprite => {
-    sprite.image = loadImage(sprite.imageSrc);
+    img.onload = () => resolve(img);
+    img.onerror = (err) => reject(err);
   });
 };
 
+export const loadSprites = async () => {
+  await Promise.all(
+    playerSprites.map(async (sprite) => {
+      sprite.image = await loadImage(sprite.imageSrc);
+    })
+  );
+
+  await Promise.all(
+    enemySprites.map(async (sprite) => {
+      sprite.image = await loadImage(sprite.imageSrc);
+    })
+  );
+
+  await Promise.all(
+    bombSprites.map(async (sprite) => {
+      sprite.image = await loadImage(sprite.imageSrc);
+    })
+  );
+};
 
 // Carregar a imagem de fundo
-export const backgroundImage = typeof window !== 'undefined' ? loadImage(EXPORT_IMAGE) : undefined;
+export let backgroundImage: HTMLImageElement | undefined;
+loadImage('/assets/map.png').then(img => {
+  backgroundImage = img;
+});

@@ -9,15 +9,12 @@ interface Position {
 }
 
 interface PlayerProps {
-  context: CanvasRenderingContext2D;
-  sprites: CharacterSprites;
-  initialPosition: Position;
+  position: Position;
+  setPosition: (position: Position) => void;
 }
 
-const Player = ({ context, sprites, initialPosition }: PlayerProps) => {
-  const [position, setPosition] = useState<Position>(initialPosition);
+const Player = ({ position, setPosition }: PlayerProps) => {
   const [direction, setDirection] = useState<string>('down');
-  const [spriteIndex, setSpriteIndex] = useState<number>(0);
 
   const handleKeyDown = (e: KeyboardEvent) => {
     let newDirection = direction;
@@ -42,38 +39,9 @@ const Player = ({ context, sprites, initialPosition }: PlayerProps) => {
         break;
     }
 
-    if (newPosition.x !== position.x || newPosition.y !== position.y) {
-      setSpriteIndex((prevIndex) => (prevIndex + 1) % sprites[newDirection as keyof CharacterSprites].length);
-    }
-
     setDirection(newDirection);
     setPosition(newPosition);
   };
-
-  useEffect(() => {
-    const sprite = sprites[direction as keyof CharacterSprites][spriteIndex];
-    context.clearRect(position.x, position.y, TILE_SIZE, TILE_SIZE);
-    context.drawImage(
-      sprites.image,
-      sprite.x,
-      sprite.y,
-      TILE_SIZE,
-      TILE_SIZE,
-      position.x,
-      position.y,
-      TILE_SIZE,
-      TILE_SIZE
-    );
-
-    const row = position.y / TILE_SIZE;
-    const col = position.x / TILE_SIZE;
-
-    // Verifica se o jogador foi atingido por uma explosão
-    if (map[row][col] === TileType.EXPLOSION) {
-      console.log('Player hit by explosion!');
-      // Lógica para o jogador ser atingido pela explosão
-    }
-  }, [context, position, direction, sprites, spriteIndex]);
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyDown);
@@ -83,6 +51,30 @@ const Player = ({ context, sprites, initialPosition }: PlayerProps) => {
   }, [handleKeyDown]);
 
   return null;
+};
+
+export const drawPlayer = (
+  context: CanvasRenderingContext2D,
+  position: Position,
+  direction: string,
+  sprites: CharacterSprites,
+  frameCount: number
+) => {
+  if (!sprites.image) return;
+
+  const spriteIndex = Math.floor(frameCount / 10) % sprites[direction as keyof CharacterSprites].length;
+  const sprite = sprites[direction as keyof CharacterSprites][spriteIndex];
+  context.drawImage(
+    sprites.image,
+    sprite.x,
+    sprite.y,
+    TILE_SIZE,
+    TILE_SIZE,
+    position.x,
+    position.y,
+    TILE_SIZE,
+    TILE_SIZE
+  );
 };
 
 export default Player;
