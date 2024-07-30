@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
-import { Game } from '../utils/game';
-import charactersConfig from '../data/data.json';
+import { Game } from '@/utils/game';
+import charactersConfig from '@/data/data.json';
+import bombConfig from '@/data/bombs.json';
 
 export default function GameCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -8,7 +9,7 @@ export default function GameCanvas() {
 
   useEffect(() => {
     if (canvasRef.current) {
-      gameRef.current = new Game(canvasRef.current, charactersConfig);
+      gameRef.current = new Game(canvasRef.current, charactersConfig, bombConfig);
     }
   }, []);
 
