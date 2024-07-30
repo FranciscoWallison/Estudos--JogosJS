@@ -1,14 +1,14 @@
+export const EXPORT_IMAGE = "/assets/map.png";
 // Defina os tipos de blocos
 export const TILE_SIZE = 16;
-export const EXPORT_IMAGE = "/assets/map.png";
 
 export enum TileType {
   EMPTY,
   SOLID,
-  DESTRUCTIBLE
+  DESTRUCTIBLE,
+  EXPLOSION
 }
 
-// Crie a matriz do mapa
 export const map = [
   [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
   [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
@@ -25,7 +25,6 @@ export const map = [
   [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
 ];
 
-// Função para desenhar o mapa
 export const drawMap = (context: CanvasRenderingContext2D) => {
   for (let row = 0; row < map.length; row++) {
     for (let col = 0; col < map[row].length; col++) {
@@ -44,6 +43,8 @@ const getTileColor = (tile: TileType): string => {
       return '#333';
     case TileType.DESTRUCTIBLE:
       return '#666';
+    case TileType.EXPLOSION:
+      return '#ff0000';
     default:
       return '#000';
   }

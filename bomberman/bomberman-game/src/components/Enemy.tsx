@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { CharacterSprites } from '../utils/sprites';
+import { TILE_SIZE } from '../utils/map';
 
 interface Position {
   x: number;
@@ -19,12 +20,12 @@ const Enemy = ({ context, sprites, initialPosition }: EnemyProps) => {
       sprites.image,
       sprite.x,
       sprite.y,
-      16,
-      16,
+      TILE_SIZE,
+      TILE_SIZE,
       initialPosition.x,
       initialPosition.y,
-      16,
-      16
+      TILE_SIZE,
+      TILE_SIZE
     );
   }, [context, initialPosition, sprites]);
 

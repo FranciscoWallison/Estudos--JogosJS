@@ -1,8 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { drawMap } from '../utils/map';
-import { backgroundImage, playerSprites, bombSprites } from '../utils/sprites';
+import { backgroundImage, bombSprites, playerSprites } from '../utils/sprites';
 import Player from './Player';
 import Bomb from './Bomb';
+
+interface Position {
+  x: number;
+  y: number;
+}
 
 const Canvas = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -23,11 +28,6 @@ const Canvas = () => {
   useEffect(() => {
     if (context) {
       const render = () => {
-        bombs.forEach((bombPosition) => {
-          <Bomb context={context} sprites={bombSprites[0]} initialPosition={bombPosition} />;
-        });
-        <Player context={context} sprites={playerSprites[0]} initialPosition={playerPosition} />;
-        
         context.clearRect(0, 0, context.canvas.width, context.canvas.height);
 
         if (backgroundImage && backgroundImage.complete) {
@@ -35,6 +35,13 @@ const Canvas = () => {
         }
 
         // drawMap(context);
+        bombs.forEach((bombPosition) => {
+          // Renderizar bombas
+          Bomb({ context, sprites: bombSprites[0], initialPosition: bombPosition });
+        });
+        // Renderizar jogador
+        Player({ context, sprites: playerSprites[0], initialPosition: playerPosition });
+
         requestAnimationFrame(render);
       };
       render();
