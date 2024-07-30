@@ -1,10 +1,9 @@
 import { useEffect } from 'react';
-import Canvas from '@/components/Canvas';
-import Player from '@/components/Player';
-import Enemy from '@/components/Enemy';
-import Bomb from '@/components/Bomb';
-import { playerSprites, enemySprites, bombSprites, loadSprites } from '@/utils/sprites';
-import { drawMap } from '@/utils/map';
+import Canvas from '../components/Canvas';
+import Player from '../components/Player';
+import Enemy from '../components/Enemy';
+import Bomb from '../components/Bomb';
+import { playerSprites, enemySprites, bombSprites, loadSprites } from '../utils/sprites';
 
 export default function Home() {
   useEffect(() => {
@@ -14,7 +13,6 @@ export default function Home() {
   return (
     <Canvas
       draw={(context) => {
-        drawMap(context);
         return (
           <>
             <Player context={context} sprites={playerSprites[0]} initialPosition={{ x: 50, y: 50 }} />

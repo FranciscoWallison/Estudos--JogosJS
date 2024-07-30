@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { drawMap } from '../utils/map';
+import { backgroundImage } from '../utils/sprites';
 
 const Canvas = ({ draw }: { draw: (ctx: CanvasRenderingContext2D) => void }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -12,7 +13,19 @@ const Canvas = ({ draw }: { draw: (ctx: CanvasRenderingContext2D) => void }) => 
 
       const render = () => {
         context.clearRect(0, 0, canvas.width, canvas.height);
-        drawMap(context); // Desenhar o mapa
+
+        // Desenhar a imagem de fundo
+        if (backgroundImage) {
+          if (backgroundImage.complete) {
+            context.drawImage(backgroundImage, 0, 0, canvas.width, canvas.height);
+          } else {
+            backgroundImage.onload = () => {
+              context.drawImage(backgroundImage, 0, 0, canvas.width, canvas.height);
+            };
+          }
+        }
+
+        //drawMap(context); // Desenhar o mapa
         draw(context); // Desenhar outros elementos (jogador, inimigos, bombas)
         animationFrameId = window.requestAnimationFrame(render);
       };
