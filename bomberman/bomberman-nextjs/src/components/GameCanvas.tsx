@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { Game } from '@/utils/game';
 import charactersConfig from '@/data/data.json';
 import bombConfig from '@/data/bombs.json';
+import mapConfig from '@/data/map.json';
 
 export default function GameCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -9,7 +10,7 @@ export default function GameCanvas() {
 
   useEffect(() => {
     if (canvasRef.current) {
-      gameRef.current = new Game(canvasRef.current, charactersConfig, bombConfig);
+      gameRef.current = new Game(canvasRef.current, charactersConfig, bombConfig, mapConfig);
     }
   }, []);
 
@@ -35,7 +36,7 @@ export default function GameCanvas() {
           Test Death
         </button>
       </div>
-      <canvas id="gameCanvas" ref={canvasRef} width="800" height="600"></canvas>
+      <canvas id="gameCanvas" ref={canvasRef} width="1000" height="600"></canvas>
     </>
   );
 }

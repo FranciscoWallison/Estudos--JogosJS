@@ -13,6 +13,7 @@ export class Bomb {
   bombSprites: Sprite[];
   explosionSprites: Sprite[];
   image: HTMLImageElement;
+  explosionRadius: number; // Raio de explosão
 
   constructor(
     x: number,
@@ -22,7 +23,8 @@ export class Bomb {
     explosionDuration: number,
     bombSprites: Sprite[],
     explosionSprites: Sprite[],
-    imageSrc: string
+    imageSrc: string,
+    explosionRadius: number
   ) {
     this.x = x;
     this.y = y;
@@ -37,6 +39,7 @@ export class Bomb {
     this.explosionSprites = explosionSprites;
     this.image = new Image();
     this.image.src = imageSrc;
+    this.explosionRadius = explosionRadius;
   }
 
   startExplosion(timestamp: number): void {
@@ -55,5 +58,11 @@ export class Bomb {
 
   isExplosionComplete(timestamp: number): boolean {
     return this.isExploding && timestamp - this.explosionStartTime > this.explosionDuration;
+  }
+
+  isWithinExplosion(x: number, y: number): boolean {
+    const dx = Math.abs(this.x - x);
+    const dy = Math.abs(this.y - y);
+    return dx <= this.explosionRadius && dy <= this.explosionRadius;
   }
 }
