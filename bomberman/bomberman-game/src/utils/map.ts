@@ -1,5 +1,6 @@
 // Defina os tipos de blocos
 export const TILE_SIZE = 16;
+export const EXPORT_IMAGE = "/assets/map.png";
 
 export enum TileType {
   EMPTY,

@@ -1,41 +1,58 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { drawMap } from '../utils/map';
-import { backgroundImage } from '../utils/sprites';
+import { backgroundImage, playerSprites, bombSprites } from '../utils/sprites';
+import Player from './Player';
+import Bomb from './Bomb';
 
-const Canvas = ({ draw }: { draw: (ctx: CanvasRenderingContext2D) => void }) => {
+const Canvas = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [context, setContext] = useState<CanvasRenderingContext2D | null>(null);
+  const [bombs, setBombs] = useState<Position[]>([]);
+  const [playerPosition, setPlayerPosition] = useState<Position>({ x: 50, y: 50 });
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    const context = canvas?.getContext('2d');
-    if (canvas && context) {
-      let animationFrameId: number;
+    if (canvas) {
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        setContext(ctx);
+      }
+    }
+  }, []);
 
+  useEffect(() => {
+    if (context) {
       const render = () => {
-        context.clearRect(0, 0, canvas.width, canvas.height);
+        bombs.forEach((bombPosition) => {
+          <Bomb context={context} sprites={bombSprites[0]} initialPosition={bombPosition} />;
+        });
+        <Player context={context} sprites={playerSprites[0]} initialPosition={playerPosition} />;
+        
+        context.clearRect(0, 0, context.canvas.width, context.canvas.height);
 
-        // Desenhar a imagem de fundo
-        if (backgroundImage) {
-          if (backgroundImage.complete) {
-            context.drawImage(backgroundImage, 0, 0, canvas.width, canvas.height);
-          } else {
-            backgroundImage.onload = () => {
-              context.drawImage(backgroundImage, 0, 0, canvas.width, canvas.height);
-            };
-          }
+        if (backgroundImage && backgroundImage.complete) {
+          context.drawImage(backgroundImage, 0, 0, context.canvas.width, context.canvas.height);
         }
 
-        //drawMap(context); // Desenhar o mapa
-        draw(context); // Desenhar outros elementos (jogador, inimigos, bombas)
-        animationFrameId = window.requestAnimationFrame(render);
+        // drawMap(context);
+        requestAnimationFrame(render);
       };
       render();
-
-      return () => {
-        window.cancelAnimationFrame(animationFrameId);
-      };
     }
-  }, [draw]);
+  }, [context, bombs, playerPosition]);
+
+  const handleKeyDown = (e: KeyboardEvent) => {
+    if (e.key === ' ') {
+      setBombs([...bombs, playerPosition]);
+    }
+  };
+
+  useEffect(() => {
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [bombs, playerPosition]);
 
   return <canvas ref={canvasRef} width={496} height={208} />;
 };

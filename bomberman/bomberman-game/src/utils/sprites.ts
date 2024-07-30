@@ -1,3 +1,5 @@
+import { EXPORT_IMAGE } from '../utils/map';
+
 export interface Sprite {
   x: number;
   y: number;
@@ -129,4 +131,4 @@ export const loadSprites = () => {
 };
 
 // Carregar a imagem de fundo
-export const backgroundImage = typeof window !== 'undefined' ? loadImage('/assets/map.png') : undefined;
+export const backgroundImage = typeof window !== 'undefined' ? loadImage(EXPORT_IMAGE) : undefined;
