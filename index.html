@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>2D Game with Background</title>
+  <style>
+    canvas {
+      border: 1px solid black;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="gameCanvas" width="496" height="208"></canvas>
+  <script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    const tileSize = 16;
+    const mapWidth = 31;
+    const mapHeight = 13;
+    const debugBlock = false;
+
+    const tileMap = [
+      [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+      [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+      [1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1],
+      [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+      [1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1],
+      [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+      [1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1],
+      [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+      [1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1],
+      [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+      [1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1],
+      [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+      [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+    ];
+
+    const player = {
+      x: 1,
+      y: 1
+    };
+
+    // Carrega a imagem de fundo
+    const backgroundImage = new Image();
+    backgroundImage.src = 'map_1.png'; // Substitua pelo caminho da sua imagem
+
+    // Desenha o mapa com a imagem de fundo
+    function drawMap() {
+      // Desenha a imagem de fundo
+      ctx.drawImage(backgroundImage, 0, 0, canvas.width, canvas.height);
+
+      if (!debugBlock) {
+        return;
+      }
+      // Desenha o mapa de tiles
+      for (let y = 0; y < mapHeight; y++) {
+        for (let x = 0; x < mapWidth; x++) {
+          if (tileMap[y][x] === 1) {
+            ctx.fillStyle = 'black';
+            ctx.fillRect(x * tileSize, y * tileSize, tileSize, tileSize);
+          }
+        }
+      }
+    }
+
+    function drawPlayer() {
+      ctx.fillStyle = 'red';
+      ctx.fillRect(player.x * tileSize, player.y * tileSize, tileSize, tileSize);
+    }
+
+    function canMove(x, y) {
+      if (x < 0 || y < 0 || x >= mapWidth || y >= mapHeight) {
+        return false;
+      }
+      return tileMap[y][x] === 0;
+    }
+
+    function movePlayer(dx, dy) {
+      const newX = player.x + dx;
+      const newY = player.y + dy;
+      if (canMove(newX, newY)) {
+        player.x = newX;
+        player.y = newY;
+      }
+      draw();
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      drawMap();
+      drawPlayer();
+    }
+
+    // Certifica-se de que a imagem de fundo está carregada antes de desenhar
+    backgroundImage.onload = function() {
+      draw();
+    };
+
+    window.addEventListener('keydown', (e) => {
+      switch (e.key) {
+        case 'ArrowUp':
+          movePlayer(0, -1);
+          break;
+        case 'ArrowDown':
+          movePlayer(0, 1);
+          break;
+        case 'ArrowLeft':
+          movePlayer(-1, 0);
+          break;
+        case 'ArrowRight':
+          movePlayer(1, 0);
+          break;
+      }
+    });
+  </script>
+</body>
+</html>

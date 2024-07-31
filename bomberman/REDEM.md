@@ -216,3 +216,161 @@
 - **Coordenadas de Morte (4, 416), (21, 416), (38, 416), (55, 416), (72, 416), (89, 416), (106, 416), (123, 416)**:
   - **Quando o personagem morrer**:
     - **Animação de Morte**: Transicione através das coordenadas fornecidas para mostrar a animação de morte.
+
+### Descritiva das Funcionalidades do Game Bomberman Retro
+
+#### 1. **Mecânicas de Jogo**
+- **Movimentação**: O jogador controla o personagem principal usando as teclas direcionais do teclado. O personagem pode se mover para cima, baixo, esquerda e direita. A lógica de movimentação inclui a inversão (flip) da sprite ao mover para a esquerda.
+- **Colocação de Bombas**: O jogador pode colocar bombas pressionando a tecla de ação. As bombas explodem após um tempo determinado, destruindo obstáculos e inimigos em seu raio de explosão.
+- **Explosões**: As explosões ocorrem em linhas retas horizontal e verticalmente a partir do ponto onde a bomba foi colocada, afetando blocos destruíveis e inimigos.
+
+#### 2. **Modos de Jogo**
+- **Modo Solo**: O jogador enfrenta níveis de dificuldade crescente, com o objetivo de eliminar todos os inimigos do mapa para avançar para o próximo nível.
+- **Modo Multijogador**: Modo competitivo onde dois ou mais jogadores se enfrentam, tentando eliminar uns aos outros usando bombas. O último jogador sobrevivente vence a partida.
+
+#### 3. **Personagens**
+- **Seleção de Personagens**: O jogo oferece a possibilidade de selecionar vários personagens, cada um com suas sprites e animações únicas.
+- **Estrutura do Objeto de Personagem**:
+```ts
+ // src/utils/player.ts
+export const playerSprite = {
+  imageSrc: "/assets/player.png",
+  down: [
+    { x: 21, y: 11 },
+    { x: 38, y: 11 },
+  ],
+  right: [
+    { x: 69, y: 11 },
+    { x: 84, y: 11 },
+  ],
+  up: [
+    { x: 117, y: 11 },
+    { x: 133, y: 11 },
+  ],
+  left: [
+    { x: 69, y: 11 },
+    { x: 84, y: 11 },
+  ],
+  death: [
+    { x: 4, y: 28 },
+    { x: 21, y: 28 },
+    { x: 38, y: 28 },
+    { x: 55, y: 28 },
+    { x: 72, y: 28 },
+    { x: 89, y: 28 },
+    { x: 106, y: 28 },
+    { x: 123, y: 28 },
+  ],
+};
+
+export const player = {
+  x: 16, // Posição inicial no eixo x
+  y: 16, // Posição inicial no eixo y
+  width: 16,
+  height: 16,
+  direction: "down", // Posição inicial do jogo
+  frameIndex: 0,
+  speed: 2, // Velocidade de movimento do jogador
+  animationSpeed: 10, // Velocidade da animação (menor é mais rápido)
+  idleFrames: { // Posição inicial de cada lado
+    down: { x: 4, y: 11 },
+    right: { x: 54, y: 11 },
+    up: { x: 100, y: 11 },
+    left: { x: 54, y: 11 },
+  },
+};
+
+```
+
+#### 4. **Inimigos**
+- **Diversidade de Inimigos**: Diferentes tipos de inimigos, cada um com seus comportamentos e padrões de movimentação únicos.
+- **Estrutura do Objeto de Inimigos**:
+```json
+ [
+  {
+    "imageSrc": "/assets/52695.png",
+    "down": [
+      { "x": 4, "y": 4 },
+      { "x": 21, "y": 4 },
+      { "x": 38, "y": 4 }
+    ],
+    "up": [
+      { "x": 4, "y": 4 },
+      { "x": 21, "y": 4 },
+      { "x": 38, "y": 4 }
+    ],
+    "right": [
+      { "x": 4, "y": 4 },
+      { "x": 21, "y": 4 },
+      { "x": 38, "y": 4 }
+    ],
+    "left": [
+      { "x": 4, "y": 4 },
+      { "x": 21, "y": 4 },
+      { "x": 38, "y": 4 }
+    ],
+    "death": [
+      { "x": 55, "y": 4 },
+      { "x": 72, "y": 4 }
+    ]
+  }
+]
+```
+
+#### 5. **Itens**
+- **Power-Ups**: Itens que podem ser coletados pelos jogadores para aumentar suas habilidades. Exemplos incluem:
+  - **Aumento de Alcance**: Aumenta o raio de explosão das bombas.
+  - **Bombas Extras**: Permite ao jogador colocar mais bombas simultaneamente.
+  - **Velocidade**: Aumenta a velocidade de movimentação do personagem.
+
+#### 6. **Níveis**
+- **Estrutura dos Níveis**: Cada nível é composto por um labirinto de blocos indestrutíveis e blocos destruíveis que podem conter inimigos e power-ups. O objetivo é limpar todos os inimigos para avançar.
+- **Mapa do Nível**:
+```ts
+export const EXPORT_IMAGE_BACKGROUND = "/assets/map_1.png";
+export const map = [
+  [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+  [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+  [1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1],
+  [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+  [1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1],
+  [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+  [1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1],
+  [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+  [1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1],
+  [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+  [1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1],
+  [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+  [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+];
+
+```
+
+#### 7. **Objetivos**
+- **Modo Solo**: Eliminar todos os inimigos de cada nível e progredir até o nível final.
+- **Modo Multijogador**: Ser o último jogador sobrevivente no mapa, eliminando os adversários com bombas estrategicamente colocadas.
+
+#### 8. **Interface do Usuário**
+- **HUD**: Exibe informações importantes como número de vidas restantes, quantidade de bombas disponíveis, alcance das explosões e pontuação.
+- **Menu Principal**: Permite acessar os modos de jogo, configurações, instruções e outras opções.
+
+#### 9. **Gráficos e Sons**
+- **Estilo Retrô**: Gráficos pixel art com animações simples, evocando a sensação dos jogos clássicos dos anos 80 e 90.
+- **Efeitos Sonoros**: Sons de explosões, coleta de itens e movimentação dos personagens, todos com um estilo retrô.
+- **Música de Fundo**: Trilha sonora 8-bit que acompanha a ação do jogo.
+
+#### 10. **Lógica das Bombas**
+- **Tempo de Explosão**: As bombas explodem após um tempo determinado (ex: 3 segundos).
+- **Evento de Explosão**: Quando a bomba explode, ela gera uma explosão em linhas retas que destrói blocos destruíveis e inimigos no caminho.
+- **Imagem da Bomba**: A sprite da bomba deve ser definida no caminho "/assets/bomb.png".
+
+### Estrutura do Objeto da Bomba
+```json
+{
+  "imageSrc": "/assets/bomb.png",
+  "duration": 3000, // Tempo em milissegundos até a explosão
+  "explosionRadius": 3 // Raio da explosão em tiles
+}
+```
+
+Com essa descrição detalhada, cobrimos todas as funcionalidades essenciais do jogo Bomberman Retro, incluindo a lógica de movimentação e sprites dos personagens e inimigos, a estrutura dos níveis e a lógica das bombas. Isso deve fornecer uma base sólida para o desenvolvimento do jogo. Se precisar de mais alguma coisa, estou à disposição!
