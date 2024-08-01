@@ -1,109 +1,105 @@
-// Inicializa o jogo Kaboom.js com configuração básica
-kaboom({
-    scale: 4,
-    background: [0, 0, 0],
-});
+// src/pages/index.tsx
+import { useEffect, useState } from "react";
+import { initKaboom } from "@/kaboom/kaboom";
+import { player, PlayerDirection } from "@/config/player";
 
-// Carrega o atlas de sprites do jogo
-loadSpriteAtlas("/sprites/playes.png", {
-    "hero": {
-        "x": 0,
-        "y": 0,
-        "width": 281,  // Largura total considerando os espaços
-        "height": 16,  // Altura dos frames
-        "sliceX": 18,  // Número de frames na horizontal
-        "anims": {
-            "idle": { "from": 0, "to": 0, "speed": 3, "loop": false },
-            "run": { "from": 1, "to": 2, "speed": 10, "loop": true },
+const Home = () => {
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const k = initKaboom();
+
+      k.loadSpriteAtlas("/sprites/player_1.png", {
+        "player1": {
+          "x": 0,
+          "y": 0,
+          "width": 272,
+          "height": 16,
+          "sliceX": 17,
+          "anims": {
+            "idle": { "from": 13, "to": 13, "speed": 3, "loop": false },
+            "run_down": { "from": 1, "to": 2, "speed": 10, "loop": true },
+            "run_right": { "from": 1, "to": 2, "speed": 10, "loop": true },
+            "run_up": { "from": 6, "to": 7, "speed": 10, "loop": true },
+            "run_left": { "from": 1, "to": 2, "speed": 10, "loop": true },
             "hit": 8,
-            "death": { "from": 9, "to": 17, "speed": 20, "loop": false },
+            "death": { "from": 9, "to": 16, "speed": 20, "loop": false },
+          },
         },
-    },
-    // outros sprites ...
-});
-// Define a velocidade de movimento
-const SPEED = 120;
+      });
 
-// Cria o jogador com o sprite "hero" na posição inicial centralizada
-const player = add([
-    sprite("hero"),
-    pos(width() / 2, height() / 2),
-    area(),
-    body(),
-    anchor("center"),
-]);
+      k.scene("main", () => {
+        const playerEntity = k.add([
+          k.sprite("player1", { anim: "idle" }),
+          k.pos(k.width() / 2, k.height() / 2),
+          k.area(),
+          k.body(),
+          k.anchor("center"),
+          { direction: player.initPositionDirection as PlayerDirection },
+        ]);
 
-// Centraliza a câmera no jogador
-player.onUpdate(() => {
-    camPos(player.pos);
-});
+        // Movimentação do jogador
+        k.onKeyDown("left", () => {
+          playerEntity.move(-100, 0);
+          if (playerEntity.curAnim() !== "run_left") {
+            playerEntity.play("run_left");
+          }
+          playerEntity.flipX = true;
+          playerEntity.direction = "left";
+        });
 
-// Função para parar o movimento do sprite e mudar para a animação 'idle'
-function stopMovement(sprite, anim = "idle") {
-    sprite.move(0, 0);
-    sprite.play(anim);
-}
+        k.onKeyDown("right", () => {
+          playerEntity.move(100, 0);
+          if (playerEntity.curAnim() !== "run_right") {
+            playerEntity.play("run_right");
+          }
+          playerEntity.flipX = false;
+          playerEntity.direction = "right";
+        });
 
-// Função para continuar o movimento para baixo
-function moveDown(sprite) {
-    sprite.move(0, SPEED);
-    sprite.play("run");
-}
+        k.onKeyDown("up", () => {
+          playerEntity.move(0, -100);
+          if (playerEntity.curAnim() !== "run_up") {
+            playerEntity.play("run_up");
+          }
+          playerEntity.direction = "up";
+        });
 
-// Função para continuar o movimento para a direita e inverter a imagem
-function moveRight(sprite) {
-    sprite.move(SPEED, 0);
-    sprite.flipX(false);
-    sprite.play("run");
-}
+        k.onKeyDown("down", () => {
+          playerEntity.move(0, 100);
+          if (playerEntity.curAnim() !== "run_down") {
+            playerEntity.play("run_down");
+          }
+          playerEntity.direction = "down";
+        });
 
-// Função para continuar o movimento para cima
-function moveUp(sprite) {
-    sprite.move(0, -SPEED);
-    sprite.play("run");
-}
+        // Idle quando solta a tecla
+        ["left", "right", "up", "down"].forEach((key) => {
+          k.onKeyRelease(key, () => {
+            if (
+              !k.isKeyDown("left") &&
+              !k.isKeyDown("right") &&
+              !k.isKeyDown("up") &&
+              !k.isKeyDown("down")
+            ) {
+              playerEntity.play("idle");
+            }
+          });
+        });
+      });
 
-// Função para continuar o movimento para a esquerda e inverter a imagem
-function moveLeft(sprite) {
-    sprite.move(-SPEED, 0);
-    sprite.flipX(true);
-    sprite.play("run");
-}
+      k.go("main");
 
-// Controle de Teclas
-onKeyDown("down", () => {
-    moveDown(player);
-});
+      setLoading(false);
+    }
+  }, []);
 
-onKeyRelease("down", () => {
-    stopMovement(player);
-});
+  if (loading) {
+    return <div id="loading-screen">Carregando...</div>;
+  }
 
-onKeyDown("right", () => {
-    moveRight(player);
-});
+  return <div id="game-container"></div>;
+};
 
-onKeyRelease("right", () => {
-    stopMovement(player);
-});
-
-onKeyDown("up", () => {
-    moveUp(player);
-});
-
-onKeyRelease("up", () => {
-    stopMovement(player);
-});
-
-onKeyDown("left", () => {
-    moveLeft(player);
-});
-
-onKeyRelease("left", () => {
-    stopMovement(player);
-});
-
-// Animação de morte (por exemplo, ao pressionar a tecla 'd')
-onKeyPress("d", () => {
-    player.play("death");
-});
+export default Home;
