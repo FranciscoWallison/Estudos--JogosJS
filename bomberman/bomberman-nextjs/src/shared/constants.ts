@@ -29,6 +29,13 @@ export const SPAWN_POSITIONS: { col: number; row: number }[] = [
   { col: 29, row: 11 },  // bottom-right
 ];
 
+// Items / Power-ups
+export const ITEM_DROP_CHANCE = 0.35; // 35% chance per destroyed block
+export const SPEED_UP_INCREMENT = 0.2;
+export const MAX_BOMB_RANGE = 8;
+export const MAX_BOMBS = 6;
+export const MAX_SPEED = 2.0;
+
 // Safe zone offsets: tiles around each spawn that must be clear of destructible blocks
 export const SPAWN_SAFE_OFFSETS: { dc: number; dr: number }[] = [
   { dc: 0, dr: 0 },

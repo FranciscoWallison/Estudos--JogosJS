@@ -1,0 +1,9 @@
+{
+  "imageSrc": "/assets/PlayStation Portable - Bomberman - Miscellaneous - Items.png",
+  "spriteSize": 128,
+  "items": [
+    { "type": "fire_up", "sprite": { "x": 10, "y": 10 } },
+    { "type": "bomb_up", "sprite": { "x": 424, "y": 11 } },
+    { "type": "speed_up", "sprite": { "x": 701, "y": 10 } }
+  ]
+}

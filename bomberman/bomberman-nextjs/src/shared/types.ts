@@ -55,12 +55,22 @@ export interface BlockState {
   destroyedAt: number | null;
 }
 
+export type ItemType = 'fire_up' | 'bomb_up' | 'speed_up';
+
+export interface ItemState {
+  id: string;
+  type: ItemType;
+  col: number;
+  row: number;
+}
+
 export interface GameState {
   tick: number;
   players: Record<string, PlayerState>;
   bombs: BombState[];
   explosions: GridPosition[];
   blocks: BlockState[];
+  items: ItemState[];
   map: TileType[][];
   status: 'waiting' | 'countdown' | 'playing' | 'finished';
   winnerId: string | null;

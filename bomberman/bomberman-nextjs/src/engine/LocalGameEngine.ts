@@ -1,10 +1,11 @@
-import { GameState, PlayerState, BombState, TileType, GridPosition, TileShrink } from '../shared/types';
+import { GameState, PlayerState, BombState, TileType, GridPosition, TileShrink, ItemType } from '../shared/types';
 import { PlayerInput } from '../shared/protocol';
 import {
   SCALED_SIZE, MAP_COLS, MAP_ROWS, MOVEMENT_SPEED,
   BOMB_TIMER_TICKS, EXPLOSION_DURATION_TICKS, SERVER_TICK_RATE,
   SERVER_TICK_MS, SNAPSHOT_INTERVAL_TICKS, SPAWN_POSITIONS,
   SPAWN_SAFE_OFFSETS, COUNTDOWN_SECONDS,
+  ITEM_DROP_CHANCE, SPEED_UP_INCREMENT, MAX_BOMB_RANGE, MAX_BOMBS, MAX_SPEED,
 } from '../shared/constants';
 import { canMoveTo, calculateExplosionCells, pixelToGrid, gridToPixel } from '../shared/collision';
 import { v4 as uuid } from 'uuid';
@@ -36,6 +37,8 @@ export class LocalGameEngine {
   /** Bomb ID that each player is allowed to walk through (the one they placed while standing on it) */
   private bombPassthrough: Map<string, string> = new Map();
   private tileShrinks?: Map<number, TileShrink>;
+  /** Items waiting to spawn after block destruction animation finishes */
+  private pendingItems: Map<string, ItemType> = new Map();
 
   constructor(
     playerIds: string[],
@@ -127,6 +130,7 @@ export class LocalGameEngine {
       bombs: [],
       explosions: [],
       blocks,
+      items: [],
       map,
       status: 'waiting',
       winnerId: null,
@@ -197,31 +201,49 @@ export class LocalGameEngine {
     // 3. Update bombs
     this.updateBombs();
 
-    // 4. Clean up finished block destruction animations
+    // 4. Clean up finished block destruction animations + spawn pending items
     this.state.blocks = this.state.blocks.filter(b => {
       if (b.destroyedAt !== null) {
         if ((this.state.tick - b.destroyedAt) >= BLOCK_DESTROY_TICKS) {
           // Animation finished: clear the tile so it becomes walkable
           this.state.map[b.row][b.col] = 0;
+          // Spawn pending item at this position
+          const key = `${b.col},${b.row}`;
+          const itemType = this.pendingItems.get(key);
+          if (itemType) {
+            this.pendingItems.delete(key);
+            this.state.items.push({
+              id: uuid(),
+              type: itemType,
+              col: b.col,
+              row: b.row,
+            });
+          }
           return false;
         }
       }
       return true;
     });
 
-    // 5. Check explosion kills
+    // 5. Check item pickups (humans only)
+    this.checkItemPickups();
+
+    // 6. Destroy items caught in explosions
+    this.destroyItemsInExplosions();
+
+    // 7. Check explosion kills
     this.checkExplosionKills();
 
-    // 6. Check monster-touch kills (monsters touching player)
+    // 8. Check monster-touch kills (monsters touching player)
     this.checkMonsterTouchKills();
 
-    // 7. Mark death animation completed
+    // 9. Mark death animation completed
     this.updateDeathAnimations();
 
-    // 8. Check win condition
+    // 10. Check win condition
     this.checkWinCondition();
 
-    // 9. Send snapshot at reduced rate
+    // 11. Send snapshot at reduced rate
     if (this.state.tick % SNAPSHOT_INTERVAL_TICKS === 0) {
       this.onSnapshot(this.getStateCopy());
     }
@@ -413,12 +435,19 @@ export class LocalGameEngine {
     );
 
     // Mark blocks as destroying (keep map[r][c]=3 so explosions stop at them visually)
+    const itemTypes: ItemType[] = ['fire_up', 'bomb_up', 'speed_up'];
     for (const block of destroyedBlocks) {
       const blockState = this.state.blocks.find(
         b => b.col === block.col && b.row === block.row && b.destroyedAt === null
       );
       if (blockState) {
         blockState.destroyedAt = this.state.tick;
+        // Random chance to spawn an item after block destruction animation
+        const key = `${block.col},${block.row}`;
+        if (!this.pendingItems.has(key) && Math.random() < ITEM_DROP_CHANCE) {
+          const randomType = itemTypes[Math.floor(Math.random() * itemTypes.length)];
+          this.pendingItems.set(key, randomType);
+        }
       }
     }
 
@@ -434,6 +463,47 @@ export class LocalGameEngine {
         this.explodeBomb(chainBomb);
       }
     }
+  }
+
+  private checkItemPickups(): void {
+    if (this.state.items.length === 0) return;
+
+    for (const player of Object.values(this.state.players)) {
+      if (player.isDead) continue;
+      if (this.monsterIds.has(player.id)) continue; // monsters don't collect items
+
+      const grid = pixelToGrid(
+        player.x + SCALED_SIZE / 2,
+        player.y + SCALED_SIZE / 2,
+      );
+
+      const itemIndex = this.state.items.findIndex(
+        item => item.col === grid.col && item.row === grid.row,
+      );
+      if (itemIndex === -1) continue;
+
+      const item = this.state.items[itemIndex];
+      switch (item.type) {
+        case 'fire_up':
+          player.bombRange = Math.min(player.bombRange + 1, MAX_BOMB_RANGE);
+          break;
+        case 'bomb_up':
+          player.bombsAvailable = Math.min(player.bombsAvailable + 1, MAX_BOMBS);
+          break;
+        case 'speed_up':
+          player.speed = Math.min(player.speed + SPEED_UP_INCREMENT, MAX_SPEED);
+          break;
+      }
+      this.state.items.splice(itemIndex, 1);
+    }
+  }
+
+  private destroyItemsInExplosions(): void {
+    if (this.state.items.length === 0 || this.state.explosions.length === 0) return;
+
+    this.state.items = this.state.items.filter(item =>
+      !this.state.explosions.some(e => e.col === item.col && e.row === item.row),
+    );
   }
 
   private checkExplosionKills(): void {

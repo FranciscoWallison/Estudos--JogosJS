@@ -1,4 +1,4 @@
-import { GameState, PlayerState, Direction, TileType, TileShrink } from '../shared/types';
+import { GameState, PlayerState, Direction, TileType, TileShrink, ItemType } from '../shared/types';
 import { PlayerInput } from '../shared/protocol';
 import {
   SCALED_SIZE, SPRITE_SIZE, SCALE, MAP_COLS, MAP_ROWS,
@@ -12,6 +12,12 @@ interface BombSpriteConfig {
   bomb: Sprite[];
   explosion: Sprite[];
   imageSrc: string;
+}
+
+export interface ItemsSpriteConfig {
+  imageSrc: string;
+  spriteSize: number;
+  items: { type: string; sprite: Sprite }[];
 }
 
 interface MapTileConfig {
@@ -41,6 +47,9 @@ export class ClientGameEngine {
   private tileDestroyFrames: Map<number, Sprite[]> = new Map();
   private tileSpriteSize: Map<number, number> = new Map();
   private tileShrinks: Map<number, TileShrink> = new Map();
+  private itemImage: HTMLImageElement | null = null;
+  private itemSprites: Map<string, Sprite> = new Map();
+  private itemSpriteSize: number = 128;
 
   // Animation
   private animationFrameId: number = 0;
@@ -70,6 +79,7 @@ export class ClientGameEngine {
     backgroundImageSrc: string,
     tiles: MapTileConfig[],
     sendInput: (input: PlayerInput) => void,
+    itemsConfig?: ItemsSpriteConfig,
   ) {
     this.canvas = canvas;
     this.canvas.width = CANVAS_WIDTH;
@@ -117,6 +127,17 @@ export class ClientGameEngine {
       }
       if (tile.shrink) {
         this.tileShrinks.set(tile.type, tile.shrink);
+      }
+    }
+
+    // Load item sprites
+    if (itemsConfig) {
+      const itemImg = new Image();
+      itemImg.src = itemsConfig.imageSrc;
+      this.itemImage = itemImg;
+      this.itemSpriteSize = itemsConfig.spriteSize;
+      for (const item of itemsConfig.items) {
+        this.itemSprites.set(item.type, item.sprite);
       }
     }
 
@@ -320,6 +341,19 @@ export class ClientGameEngine {
             x, y, SCALED_SIZE, SCALED_SIZE
           );
         }
+      }
+    }
+
+    // 2c. Items on the ground
+    if (this.itemImage && this.itemImage.complete && this.state.items.length > 0) {
+      for (const item of this.state.items) {
+        const sprite = this.itemSprites.get(item.type);
+        if (!sprite) continue;
+        this.ctx.drawImage(
+          this.itemImage,
+          sprite.x, sprite.y, this.itemSpriteSize, this.itemSpriteSize,
+          item.col * SCALED_SIZE, item.row * SCALED_SIZE, SCALED_SIZE, SCALED_SIZE,
+        );
       }
     }
 

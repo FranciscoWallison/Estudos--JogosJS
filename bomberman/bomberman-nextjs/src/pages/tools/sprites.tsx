@@ -3,26 +3,7 @@ import charactersConfig from '../../data/data.json';
 import bombsConfig from '../../data/bombs.json';
 import monstersConfig from '../../data/monsters.json';
 
-const AVAILABLE_IMAGES = [
-  '/assets/bomberman.png',
-  '/assets/bomberman2.png',
-  '/assets/bomberman copy.png',
-  '/assets/bomberman2 - Copia.png',
-  '/assets/bbsprits.png',
-  '/assets/Arcade - Bomberman World - Bomberman.png',
-  '/assets/Game Boy Advance - Bomberman Jetters_ Densetsu no Bomberman (JPN) - Enemies & Bosses - Enemies.png',
-  '/assets/52695.png',
-  '/assets/52695 (1).png',
-  '/assets/60462.png',
-  '/assets/60462 (1).png',
-  '/assets/59913.png',
-  '/assets/59913 (1).png',
-  '/assets/41421.png',
-  '/assets/7944.png',
-  '/assets/map.png',
-  '/assets/44163.jpg',
-  '/assets/44163 (1).jpg',
-];
+const FALLBACK_IMAGES = ['/assets/bomberman.png'];
 
 const SPRITE_SIZE = 16;
 
@@ -84,11 +65,25 @@ function SpriteThumbnail({ img, sprite, size = 32 }: { img: HTMLImageElement | n
 export default function SpriteTool() {
   // --- Shared state ---
   const [activeTab, setActiveTab] = useState<TabId>('explorer');
+  const [availableImages, setAvailableImages] = useState<string[]>(FALLBACK_IMAGES);
   const imageRef = useRef<HTMLImageElement | null>(null);
-  const [imageSrc, setImageSrc] = useState(AVAILABLE_IMAGES[0]);
+  const [imageSrc, setImageSrc] = useState(FALLBACK_IMAGES[0]);
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageSize, setImageSize] = useState({ w: 0, h: 0 });
   const [selectedList, setSelectedList] = useState<SelectedSprite[]>([]);
+
+  // --- Fetch available images from API ---
+  useEffect(() => {
+    fetch('/api/assets')
+      .then(res => res.json())
+      .then((images: string[]) => {
+        if (images.length > 0) {
+          setAvailableImages(images);
+          setImageSrc(images[0]);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   // --- Explorer state ---
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -511,7 +506,7 @@ export default function SpriteTool() {
             <div>
               <label style={labelStyle}>Imagem:</label>
               <select value={imageSrc} onChange={(e) => setImageSrc(e.target.value)} style={{ ...inputStyle, width: '200px' }}>
-                {AVAILABLE_IMAGES.map(src => <option key={src} value={src}>{src.split('/').pop()}</option>)}
+                {availableImages.map(src => <option key={src} value={src}>{src.split('/').pop()}</option>)}
               </select>
             </div>
 

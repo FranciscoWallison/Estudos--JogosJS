@@ -1,5 +1,5 @@
 import { LocalGameEngine, EngineOptions } from '../engine/LocalGameEngine';
-import { ClientGameEngine } from './ClientGameEngine';
+import { ClientGameEngine, ItemsSpriteConfig } from './ClientGameEngine';
 import { BotController } from './BotController';
 import { GameState, GridPosition, TileType, TileShrink } from '../shared/types';
 import { PlayerInput } from '../shared/protocol';
@@ -10,6 +10,7 @@ import {
 } from '../shared/constants';
 import mapConfig from '../data/map.json';
 import monstersConfig from '../data/monsters.json';
+import itemsConfig from '../data/items.json';
 
 interface BombSpriteConfig {
   bomb: { x: number; y: number }[];
@@ -157,6 +158,7 @@ export class LocalGameController {
       (input: PlayerInput) => {
         this.serverEngine.pushInput(this.playerId, input);
       },
+      itemsConfig as ItemsSpriteConfig,
     );
 
     // Create bot controllers for monsters (no bombs, medium difficulty)
