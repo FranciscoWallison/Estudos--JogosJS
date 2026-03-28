@@ -1,10 +1,11 @@
-import { GameState, PlayerState, BombState, TileType, GridPosition } from '../../shared/types';
+import { GameState, PlayerState, BombState, TileType, GridPosition, TileShrink, ItemType } from '../../shared/types';
 import { PlayerInput } from '../../shared/protocol';
 import {
   SCALED_SIZE, MAP_COLS, MAP_ROWS, MOVEMENT_SPEED,
   BOMB_TIMER_TICKS, EXPLOSION_DURATION_TICKS, SERVER_TICK_RATE,
   SERVER_TICK_MS, SNAPSHOT_INTERVAL_TICKS, SPAWN_POSITIONS,
   SPAWN_SAFE_OFFSETS, COUNTDOWN_SECONDS,
+  ITEM_DROP_CHANCE, SPEED_UP_INCREMENT, MAX_BOMB_RANGE, MAX_BOMBS, MAX_SPEED,
 } from '../../shared/constants';
 import { canMoveTo, calculateExplosionCells, pixelToGrid, gridToPixel } from '../../shared/collision';
 import { v4 as uuid } from 'uuid';
@@ -18,6 +19,10 @@ export class ServerGameEngine {
   private countdownInterval: ReturnType<typeof setInterval> | null = null;
   private onSnapshot: (state: GameState) => void;
   private onGameOver: (winnerId: string | null) => void;
+  /** Bomb ID that each player is allowed to walk through (the one they placed while standing on it) */
+  private bombPassthrough: Map<string, string> = new Map();
+  /** Items waiting to spawn after block destruction animation finishes */
+  private pendingItems: Map<string, ItemType> = new Map();
 
   constructor(
     playerIds: string[],
@@ -33,6 +38,9 @@ export class ServerGameEngine {
 
     // Build map copy
     const map = mapLayout.map(row => row.map(t => t as TileType));
+
+    // Default player shrink
+    const defaultShrink: TileShrink = { top: 6, bottom: 6, left: 6, right: 6 };
 
     // Build players
     const players: Record<string, PlayerState> = {};
@@ -53,6 +61,7 @@ export class ServerGameEngine {
         bombsAvailable: 1,
         bombRange: 2,
         speed: 1,
+        shrink: defaultShrink,
       };
       this.inputQueues.set(id, []);
     });
@@ -85,6 +94,7 @@ export class ServerGameEngine {
       bombs: [],
       explosions: [],
       blocks,
+      items: [],
       map,
       status: 'waiting',
       winnerId: null,
@@ -157,24 +167,43 @@ export class ServerGameEngine {
     // 3. Update bombs
     this.updateBombs();
 
-    // 4. Clean up finished block destruction animations
+    // 4. Clean up finished block destruction animations + spawn pending items
     this.state.blocks = this.state.blocks.filter(b => {
       if (b.destroyedAt !== null) {
         if ((this.state.tick - b.destroyedAt) >= BLOCK_DESTROY_TICKS) {
+          // Animation finished: clear the tile so it becomes walkable
           this.state.map[b.row][b.col] = 0;
+          // Spawn pending item at this position
+          const key = `${b.col},${b.row}`;
+          const itemType = this.pendingItems.get(key);
+          if (itemType) {
+            this.pendingItems.delete(key);
+            this.state.items.push({
+              id: uuid(),
+              type: itemType,
+              col: b.col,
+              row: b.row,
+            });
+          }
           return false;
         }
       }
       return true;
     });
 
-    // 5. Check explosion kills
+    // 5. Check item pickups
+    this.checkItemPickups();
+
+    // 6. Destroy items caught in explosions
+    this.destroyItemsInExplosions();
+
+    // 7. Check explosion kills
     this.checkExplosionKills();
 
-    // 5. Check win condition
+    // 8. Check win condition
     this.checkWinCondition();
 
-    // 6. Send snapshot at reduced rate
+    // 9. Send snapshot at reduced rate
     if (this.state.tick % SNAPSHOT_INTERVAL_TICKS === 0) {
       this.onSnapshot(this.getStateCopy());
     }
@@ -209,9 +238,70 @@ export class ServerGameEngine {
       case 'right': newX += speed; break;
     }
 
-    if (canMoveTo(newX, newY, SCALED_SIZE, this.state.map)) {
-      player.x = newX;
-      player.y = newY;
+    if (!canMoveTo(newX, newY, SCALED_SIZE, this.state.map, undefined, player.shrink)) return;
+
+    // Check bomb collision
+    if (this.isBlockedByBomb(player, newX, newY)) return;
+
+    player.x = newX;
+    player.y = newY;
+
+    // Clear passthrough if player left the bomb tile
+    this.updateBombPassthrough(player);
+  }
+
+  private isBlockedByBomb(player: PlayerState, newX: number, newY: number): boolean {
+    const s = player.shrink;
+    const left = newX + s.left;
+    const right = newX + SCALED_SIZE - s.right;
+    const top = newY + s.top;
+    const bottom = newY + SCALED_SIZE - s.bottom;
+
+    const colStart = Math.floor(left / SCALED_SIZE);
+    const colEnd = Math.floor((right - 1) / SCALED_SIZE);
+    const rowStart = Math.floor(top / SCALED_SIZE);
+    const rowEnd = Math.floor((bottom - 1) / SCALED_SIZE);
+
+    const passthroughBombId = this.bombPassthrough.get(player.id);
+
+    for (const bomb of this.state.bombs) {
+      if (bomb.isExploding) continue;
+      if (bomb.id === passthroughBombId) continue;
+      if (bomb.col >= colStart && bomb.col <= colEnd &&
+          bomb.row >= rowStart && bomb.row <= rowEnd) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private updateBombPassthrough(player: PlayerState): void {
+    const passthroughBombId = this.bombPassthrough.get(player.id);
+    if (!passthroughBombId) return;
+
+    const bomb = this.state.bombs.find(b => b.id === passthroughBombId);
+    if (!bomb) {
+      this.bombPassthrough.delete(player.id);
+      return;
+    }
+
+    // Only remove passthrough when the entire hitbox no longer overlaps the bomb tile
+    const s = player.shrink;
+    const left = player.x + s.left;
+    const right = player.x + SCALED_SIZE - s.right;
+    const top = player.y + s.top;
+    const bottom = player.y + SCALED_SIZE - s.bottom;
+
+    const bombLeft = bomb.col * SCALED_SIZE;
+    const bombRight = bombLeft + SCALED_SIZE;
+    const bombTop = bomb.row * SCALED_SIZE;
+    const bombBottom = bombTop + SCALED_SIZE;
+
+    const overlaps = left < bombRight && right > bombLeft &&
+                     top < bombBottom && bottom > bombTop;
+
+    if (!overlaps) {
+      this.bombPassthrough.delete(player.id);
     }
   }
 
@@ -234,8 +324,9 @@ export class ServerGameEngine {
     if (existing) return;
 
     const pos = gridToPixel(grid.col, grid.row);
+    const bombId = uuid();
     this.state.bombs.push({
-      id: uuid(),
+      id: bombId,
       ownerId: player.id,
       col: grid.col,
       row: grid.row,
@@ -246,6 +337,9 @@ export class ServerGameEngine {
       range: player.bombRange,
       isExploding: false,
     });
+
+    // Player can walk through their own bomb until they leave the tile
+    this.bombPassthrough.set(player.id, bombId);
   }
 
   private updateBombs(): void {
@@ -301,12 +395,19 @@ export class ServerGameEngine {
     );
 
     // Mark blocks as destroying (keep map[r][c]=3 so explosions stop at them)
+    const itemTypes: ItemType[] = ['fire_up', 'bomb_up', 'speed_up'];
     for (const block of destroyedBlocks) {
       const blockState = this.state.blocks.find(
         b => b.col === block.col && b.row === block.row && b.destroyedAt === null
       );
       if (blockState) {
         blockState.destroyedAt = this.state.tick;
+        // Random chance to spawn an item after block destruction animation
+        const key = `${block.col},${block.row}`;
+        if (!this.pendingItems.has(key) && Math.random() < ITEM_DROP_CHANCE) {
+          const randomType = itemTypes[Math.floor(Math.random() * itemTypes.length)];
+          this.pendingItems.set(key, randomType);
+        }
       }
     }
 
@@ -322,6 +423,46 @@ export class ServerGameEngine {
         this.explodeBomb(chainBomb);
       }
     }
+  }
+
+  private checkItemPickups(): void {
+    if (this.state.items.length === 0) return;
+
+    for (const player of Object.values(this.state.players)) {
+      if (player.isDead) continue;
+
+      const grid = pixelToGrid(
+        player.x + SCALED_SIZE / 2,
+        player.y + SCALED_SIZE / 2,
+      );
+
+      const itemIndex = this.state.items.findIndex(
+        item => item.col === grid.col && item.row === grid.row,
+      );
+      if (itemIndex === -1) continue;
+
+      const item = this.state.items[itemIndex];
+      switch (item.type) {
+        case 'fire_up':
+          player.bombRange = Math.min(player.bombRange + 1, MAX_BOMB_RANGE);
+          break;
+        case 'bomb_up':
+          player.bombsAvailable = Math.min(player.bombsAvailable + 1, MAX_BOMBS);
+          break;
+        case 'speed_up':
+          player.speed = Math.min(player.speed + SPEED_UP_INCREMENT, MAX_SPEED);
+          break;
+      }
+      this.state.items.splice(itemIndex, 1);
+    }
+  }
+
+  private destroyItemsInExplosions(): void {
+    if (this.state.items.length === 0 || this.state.explosions.length === 0) return;
+
+    this.state.items = this.state.items.filter(item =>
+      !this.state.explosions.some(e => e.col === item.col && e.row === item.row),
+    );
   }
 
   private checkExplosionKills(): void {
