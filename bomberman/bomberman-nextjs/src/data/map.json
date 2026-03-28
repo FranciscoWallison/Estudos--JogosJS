@@ -16,7 +16,8 @@
       {
         "type": 2,
         "imageSrc": "/assets/map.png",
-        "frames": [{ "x": 0, "y": 0 }]
+        "frames": [{ "x": 0, "y": 0 }],
+        "shrink": { "top": 1, "bottom": 1, "left": 1, "right": 1 }
       },
       {
         "type": 3,

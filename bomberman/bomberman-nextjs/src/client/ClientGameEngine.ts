@@ -1,4 +1,4 @@
-import { GameState, PlayerState, Direction, TileType } from '../shared/types';
+import { GameState, PlayerState, Direction, TileType, TileShrink } from '../shared/types';
 import { PlayerInput } from '../shared/protocol';
 import {
   SCALED_SIZE, SPRITE_SIZE, SCALE, MAP_COLS, MAP_ROWS,
@@ -20,6 +20,7 @@ interface MapTileConfig {
   spriteSize?: number;
   frames?: Sprite[];
   destroyFrames?: Sprite[];
+  shrink?: TileShrink;
 }
 
 export class ClientGameEngine {
@@ -39,6 +40,7 @@ export class ClientGameEngine {
   private tileFrames: Map<number, Sprite[] | null> = new Map();
   private tileDestroyFrames: Map<number, Sprite[]> = new Map();
   private tileSpriteSize: Map<number, number> = new Map();
+  private tileShrinks: Map<number, TileShrink> = new Map();
 
   // Animation
   private animationFrameId: number = 0;
@@ -56,6 +58,9 @@ export class ClientGameEngine {
 
   // Callbacks
   private onGameOver: ((winnerId: string | null, winnerName: string | null) => void) | null = null;
+
+  // Debug
+  private debugMode: boolean = false;
 
   constructor(
     canvas: HTMLCanvasElement,
@@ -110,6 +115,9 @@ export class ClientGameEngine {
       if (tile.destroyFrames && tile.destroyFrames.length > 0) {
         this.tileDestroyFrames.set(tile.type, tile.destroyFrames);
       }
+      if (tile.shrink) {
+        this.tileShrinks.set(tile.type, tile.shrink);
+      }
     }
 
     // Input handlers
@@ -143,6 +151,12 @@ export class ClientGameEngine {
   }
 
   private handleKeyDown(e: KeyboardEvent): void {
+    if (e.key === 'F3') {
+      e.preventDefault();
+      this.debugMode = !this.debugMode;
+      return;
+    }
+
     if (this.keysDown.has(e.key)) return;
     this.keysDown.add(e.key);
 
@@ -211,7 +225,7 @@ export class ClientGameEngine {
         case 'left': nx -= speed; break;
         case 'right': nx += speed; break;
       }
-      if (canMoveTo(nx, ny, SCALED_SIZE, this.state.map)) {
+      if (canMoveTo(nx, ny, SCALED_SIZE, this.state.map, this.tileShrinks, player.shrink)) {
         player.x = nx;
         player.y = ny;
       }
@@ -371,6 +385,11 @@ export class ClientGameEngine {
     if (this.state.status === 'finished') {
       this.drawGameOver();
     }
+
+    // 7. Debug collision overlay
+    if (this.debugMode) {
+      this.drawDebugCollisions();
+    }
   }
 
   private drawPlayer(player: PlayerState, timestamp: number): void {
@@ -474,6 +493,78 @@ export class ClientGameEngine {
       this.ctx.font = 'bold 48px Arial';
       this.ctx.fillText('EMPATE', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2);
     }
+  }
+
+  private drawDebugCollisions(): void {
+    if (!this.state) return;
+    const ctx = this.ctx;
+    ctx.lineWidth = 1;
+
+    // Draw tile collision boxes
+    for (let r = 0; r < MAP_ROWS; r++) {
+      for (let c = 0; c < MAP_COLS; c++) {
+        const tile = this.state.map[r][c];
+        if (tile === 0) continue;
+
+        const shrink = this.tileShrinks.get(tile);
+        if (shrink) {
+          // Tile with custom shrink - yellow outline
+          const tLeft = c * SCALED_SIZE + shrink.left;
+          const tTop = r * SCALED_SIZE + shrink.top;
+          const tWidth = SCALED_SIZE - shrink.left - shrink.right;
+          const tHeight = SCALED_SIZE - shrink.top - shrink.bottom;
+          ctx.strokeStyle = 'rgba(255, 255, 0, 0.8)';
+          ctx.strokeRect(tLeft, tTop, tWidth, tHeight);
+        } else {
+          // Full tile collision - red outline
+          ctx.strokeStyle = 'rgba(255, 0, 0, 0.6)';
+          ctx.strokeRect(c * SCALED_SIZE, r * SCALED_SIZE, SCALED_SIZE, SCALED_SIZE);
+        }
+      }
+    }
+
+    // Draw player/monster hitboxes (per-entity shrink)
+    for (const player of Object.values(this.state.players)) {
+      if (player.isDead || player.deathCompleted) continue;
+
+      const isLocal = player.id === this.myPlayerId;
+      const rp = isLocal && this.localPlayerState ? this.localPlayerState : player;
+      const s = rp.shrink;
+
+      const pLeft = rp.x + s.left;
+      const pTop = rp.y + s.top;
+      const pWidth = SCALED_SIZE - s.left - s.right;
+      const pHeight = SCALED_SIZE - s.top - s.bottom;
+
+      ctx.strokeStyle = isLocal ? 'rgba(0, 255, 0, 0.9)' : 'rgba(0, 200, 255, 0.9)';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(pLeft, pTop, pWidth, pHeight);
+    }
+
+    // Draw grid overlay (subtle)
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+    ctx.lineWidth = 0.5;
+    for (let r = 0; r <= MAP_ROWS; r++) {
+      ctx.beginPath();
+      ctx.moveTo(0, r * SCALED_SIZE);
+      ctx.lineTo(CANVAS_WIDTH, r * SCALED_SIZE);
+      ctx.stroke();
+    }
+    for (let c = 0; c <= MAP_COLS; c++) {
+      ctx.beginPath();
+      ctx.moveTo(c * SCALED_SIZE, 0);
+      ctx.lineTo(c * SCALED_SIZE, CANVAS_HEIGHT);
+      ctx.stroke();
+    }
+
+    // Debug label
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+    ctx.fillRect(4, 4, 120, 20);
+    ctx.fillStyle = '#0f0';
+    ctx.font = '12px monospace';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'top';
+    ctx.fillText('DEBUG (F3)', 8, 7);
   }
 
   destroy(): void {

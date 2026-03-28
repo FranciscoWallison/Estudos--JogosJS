@@ -1,6 +1,7 @@
 [
   {
     "imageSrc": "/assets/bomberman.png",
+    "shrink": { "top": 6, "bottom": 6, "left": 6, "right": 6 },
     "down": [
       {
         "x": 4,
@@ -94,6 +95,7 @@
   },
   {
     "imageSrc": "/assets/bomberman.png",
+    "shrink": { "top": 6, "bottom": 6, "left": 6, "right": 6 },
     "down": [
       {
         "x": 4,
@@ -187,6 +189,7 @@
   },
   {
     "imageSrc": "/assets/bomberman.png",
+    "shrink": { "top": 6, "bottom": 6, "left": 6, "right": 6 },
     "down": [
       {
         "x": 4,
@@ -280,6 +283,7 @@
   },
   {
     "imageSrc": "/assets/bomberman.png",
+    "shrink": { "top": 6, "bottom": 6, "left": 6, "right": 6 },
     "down": [
       {
         "x": 4,
@@ -373,6 +377,7 @@
   },
   {
     "imageSrc": "/assets/bomberman.png",
+    "shrink": { "top": 6, "bottom": 6, "left": 6, "right": 6 },
     "down": [
       {
         "x": 4,
@@ -466,6 +471,7 @@
   },
   {
     "imageSrc": "/assets/bomberman.png",
+    "shrink": { "top": 6, "bottom": 6, "left": 6, "right": 6 },
     "down": [
       {
         "x": 4,
@@ -559,6 +565,7 @@
   },
   {
     "imageSrc": "/assets/bomberman.png",
+    "shrink": { "top": 6, "bottom": 6, "left": 6, "right": 6 },
     "down": [
       {
         "x": 4,

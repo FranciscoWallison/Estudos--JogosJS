@@ -1,3 +1,5 @@
+import { TileShrink } from '../shared/types';
+
 export interface Sprite {
   x: number;
   y: number;
@@ -10,6 +12,7 @@ export interface CharacterConfig {
   up: Sprite[];
   left: Sprite[];
   death: Sprite[];
+  shrink?: TileShrink;
 }
 
 export class Character {

@@ -1,4 +1,4 @@
-import { GameState, Direction, GridPosition, TileType } from '../shared/types';
+import { GameState, Direction, GridPosition, TileType, TileShrink } from '../shared/types';
 import { PlayerInput } from '../shared/protocol';
 import { SCALED_SIZE, MAP_COLS, MAP_ROWS, BOMB_TIMER_TICKS } from '../shared/constants';
 import { canMoveTo, calculateExplosionCells, pixelToGrid, gridToPixel } from '../shared/collision';
@@ -22,16 +22,19 @@ export class BotController {
   private bombCooldown: number;
   private randomChance: number;
   private canPlaceBombs: boolean;
+  private tileShrinks?: Map<number, TileShrink>;
 
   constructor(
     botId: string,
     pushInput: (playerId: string, input: PlayerInput) => void,
     difficulty: 'easy' | 'medium' | 'hard' = 'medium',
     canPlaceBombs: boolean = true,
+    tileShrinks?: Map<number, TileShrink>,
   ) {
     this.botId = botId;
     this.pushInput = pushInput;
     this.canPlaceBombs = canPlaceBombs;
+    this.tileShrinks = tileShrinks;
 
     switch (difficulty) {
       case 'easy':
@@ -66,15 +69,17 @@ export class BotController {
     const dangerCells = this.computeDangerZone(state);
     const inDanger = dangerCells.some(c => c.col === grid.col && c.row === grid.row);
 
+    const botShrink = bot.shrink;
+
     // Priority 1: Flee from danger
     if (inDanger) {
-      const safeDir = this.findSafeDirection(grid, state.map, dangerCells);
+      const safeDir = this.findSafeDirection(grid, state.map, dangerCells, botShrink);
       if (safeDir) {
         this.emitMove(safeDir);
         return;
       }
       // No safe direction - try any walkable direction
-      const anyDir = this.findAnyWalkableDirection(grid, state.map);
+      const anyDir = this.findAnyWalkableDirection(grid, state.map, botShrink);
       if (anyDir) {
         this.emitMove(anyDir);
       }
@@ -84,7 +89,7 @@ export class BotController {
     // Priority 2: Place bomb near destructible block (only if allowed)
     if (this.canPlaceBombs && this.tickCounter - this.lastBombTick >= this.bombCooldown) {
       if (this.isNearDestructible(grid, state.map)) {
-        const escapeDir = this.findEscapeAfterBomb(grid, bot.bombRange, state.map, dangerCells);
+        const escapeDir = this.findEscapeAfterBomb(grid, bot.bombRange, state.map, dangerCells, botShrink);
         if (escapeDir) {
           this.emitBomb();
           this.lastBombTick = this.tickCounter;
@@ -96,7 +101,7 @@ export class BotController {
 
     // Random action chance (makes bots less predictable)
     if (Math.random() < this.randomChance) {
-      const randomDir = this.findAnyWalkableDirection(grid, state.map);
+      const randomDir = this.findAnyWalkableDirection(grid, state.map, botShrink);
       if (randomDir) {
         this.emitMove(randomDir);
         return;
@@ -111,7 +116,7 @@ export class BotController {
     }
 
     // Priority 4: Wander randomly
-    const wanderDir = this.findAnyWalkableDirection(grid, state.map);
+    const wanderDir = this.findAnyWalkableDirection(grid, state.map, botShrink);
     if (wanderDir) {
       this.emitMove(wanderDir);
     } else {
@@ -155,6 +160,7 @@ export class BotController {
     grid: GridPosition,
     map: TileType[][],
     dangerCells: GridPosition[],
+    playerShrink?: TileShrink,
   ): Direction | null {
     const shuffled = this.shuffleArray([...DIRECTIONS]);
     for (const dir of shuffled) {
@@ -163,7 +169,7 @@ export class BotController {
       const targetRow = grid.row + offset.dr;
       const targetPixel = gridToPixel(targetCol, targetRow);
 
-      if (canMoveTo(targetPixel.x, targetPixel.y, SCALED_SIZE, map)) {
+      if (canMoveTo(targetPixel.x, targetPixel.y, SCALED_SIZE, map, this.tileShrinks, playerShrink)) {
         const isSafe = !dangerCells.some(
           c => c.col === targetCol && c.row === targetRow,
         );
@@ -173,12 +179,12 @@ export class BotController {
     return null;
   }
 
-  private findAnyWalkableDirection(grid: GridPosition, map: TileType[][]): Direction | null {
+  private findAnyWalkableDirection(grid: GridPosition, map: TileType[][], playerShrink?: TileShrink): Direction | null {
     const shuffled = this.shuffleArray([...DIRECTIONS]);
     for (const dir of shuffled) {
       const offset = DIR_OFFSETS[dir];
       const targetPixel = gridToPixel(grid.col + offset.dc, grid.row + offset.dr);
-      if (canMoveTo(targetPixel.x, targetPixel.y, SCALED_SIZE, map)) {
+      if (canMoveTo(targetPixel.x, targetPixel.y, SCALED_SIZE, map, this.tileShrinks, playerShrink)) {
         return dir;
       }
     }
@@ -202,6 +208,7 @@ export class BotController {
     bombRange: number,
     map: TileType[][],
     currentDanger: GridPosition[],
+    playerShrink?: TileShrink,
   ): Direction | null {
     // Simulate explosion if bomb placed at grid position
     const { cells: futureDanger } = calculateExplosionCells(
@@ -217,7 +224,7 @@ export class BotController {
       const targetRow = grid.row + offset.dr;
       const targetPixel = gridToPixel(targetCol, targetRow);
 
-      if (!canMoveTo(targetPixel.x, targetPixel.y, SCALED_SIZE, map)) continue;
+      if (!canMoveTo(targetPixel.x, targetPixel.y, SCALED_SIZE, map, this.tileShrinks, playerShrink)) continue;
 
       const targetInDanger = allDanger.some(
         c => c.col === targetCol && c.row === targetRow,
@@ -229,7 +236,7 @@ export class BotController {
       const furtherCol = targetCol + offset.dc;
       const furtherRow = targetRow + offset.dr;
       const furtherPixel = gridToPixel(furtherCol, furtherRow);
-      if (canMoveTo(furtherPixel.x, furtherPixel.y, SCALED_SIZE, map)) {
+      if (canMoveTo(furtherPixel.x, furtherPixel.y, SCALED_SIZE, map, this.tileShrinks, playerShrink)) {
         const furtherSafe = !allDanger.some(
           c => c.col === furtherCol && c.row === furtherRow,
         );

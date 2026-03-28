@@ -1,4 +1,4 @@
-import { TileType, GridPosition } from './types';
+import { TileType, GridPosition, TileShrink } from './types';
 import { SCALED_SIZE, MAP_COLS, MAP_ROWS } from './constants';
 
 /**
@@ -21,38 +21,56 @@ export function gridToPixel(col: number, row: number): { x: number; y: number } 
   };
 }
 
+const DEFAULT_PLAYER_SHRINK: TileShrink = { top: 6, bottom: 6, left: 6, right: 6 };
+
 /**
  * Check if a rectangle at (newX, newY) with given size can move to that position.
- * Uses AABB vs tile-grid collision with a slightly shrunken hitbox
- * to allow squeezing through gaps (classic Bomberman feel).
+ * Uses AABB vs tile-grid collision with a shrunken player hitbox.
+ * Tiles with a shrink config have a reduced collision box; others use the full tile.
  */
 export function canMoveTo(
   newX: number,
   newY: number,
   size: number,
   map: TileType[][],
-  shrink: number = 6
+  tileShrinks?: Map<number, TileShrink>,
+  playerShrink: TileShrink = DEFAULT_PLAYER_SHRINK,
 ): boolean {
-  const left = newX + shrink;
-  const right = newX + size - shrink;
-  const top = newY + shrink;
-  const bottom = newY + size - shrink;
+  const pLeft = newX + playerShrink.left;
+  const pRight = newX + size - playerShrink.right;
+  const pTop = newY + playerShrink.top;
+  const pBottom = newY + size - playerShrink.bottom;
 
   // Boundary check
-  if (left < 0 || top < 0 || right > MAP_COLS * SCALED_SIZE || bottom > MAP_ROWS * SCALED_SIZE) {
+  if (pLeft < 0 || pTop < 0 || pRight > MAP_COLS * SCALED_SIZE || pBottom > MAP_ROWS * SCALED_SIZE) {
     return false;
   }
 
-  // Check all tiles the hitbox overlaps
-  const colStart = Math.floor(left / SCALED_SIZE);
-  const colEnd = Math.floor((right - 1) / SCALED_SIZE);
-  const rowStart = Math.floor(top / SCALED_SIZE);
-  const rowEnd = Math.floor((bottom - 1) / SCALED_SIZE);
+  // Check all tiles the player hitbox could overlap
+  const colStart = Math.floor(pLeft / SCALED_SIZE);
+  const colEnd = Math.floor((pRight - 1) / SCALED_SIZE);
+  const rowStart = Math.floor(pTop / SCALED_SIZE);
+  const rowEnd = Math.floor((pBottom - 1) / SCALED_SIZE);
 
   for (let r = rowStart; r <= rowEnd; r++) {
     for (let c = colStart; c <= colEnd; c++) {
       if (r < 0 || r >= MAP_ROWS || c < 0 || c >= MAP_COLS) return false;
-      if (map[r][c] !== 0) return false;
+      const tile = map[r][c];
+      if (tile === 0) continue;
+
+      const shrink = tileShrinks?.get(tile);
+      if (!shrink) return false; // no shrink config = full tile collision
+
+      // Tile collision box with per-side shrink
+      const tLeft = c * SCALED_SIZE + shrink.left;
+      const tRight = (c + 1) * SCALED_SIZE - shrink.right;
+      const tTop = r * SCALED_SIZE + shrink.top;
+      const tBottom = (r + 1) * SCALED_SIZE - shrink.bottom;
+
+      // AABB overlap test
+      if (pLeft < tRight && pRight > tLeft && pTop < tBottom && pBottom > tTop) {
+        return false;
+      }
     }
   }
 

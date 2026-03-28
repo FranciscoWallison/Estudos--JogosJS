@@ -9,6 +9,8 @@ import {
 import { canMoveTo, calculateExplosionCells, pixelToGrid, gridToPixel } from '../../shared/collision';
 import { v4 as uuid } from 'uuid';
 
+const BLOCK_DESTROY_TICKS = 30;
+
 export class ServerGameEngine {
   private state: GameState;
   private inputQueues: Map<string, PlayerInput[]>;
@@ -155,7 +157,18 @@ export class ServerGameEngine {
     // 3. Update bombs
     this.updateBombs();
 
-    // 4. Check explosion kills
+    // 4. Clean up finished block destruction animations
+    this.state.blocks = this.state.blocks.filter(b => {
+      if (b.destroyedAt !== null) {
+        if ((this.state.tick - b.destroyedAt) >= BLOCK_DESTROY_TICKS) {
+          this.state.map[b.row][b.col] = 0;
+          return false;
+        }
+      }
+      return true;
+    });
+
+    // 5. Check explosion kills
     this.checkExplosionKills();
 
     // 5. Check win condition
@@ -258,14 +271,23 @@ export class ServerGameEngine {
       return true;
     });
 
-    // Rebuild explosion cells
+    // Rebuild explosion cells (exclude cells where blocks are being destroyed)
+    const destroyingSet = new Set(
+      this.state.blocks
+        .filter(b => b.destroyedAt !== null)
+        .map(b => `${b.col},${b.row}`)
+    );
     this.state.explosions = [];
     for (const bomb of this.state.bombs) {
       if (bomb.isExploding) {
         const { cells } = calculateExplosionCells(
           bomb.col, bomb.row, bomb.range, this.state.map
         );
-        this.state.explosions.push(...cells);
+        for (const cell of cells) {
+          if (!destroyingSet.has(`${cell.col},${cell.row}`)) {
+            this.state.explosions.push(cell);
+          }
+        }
       }
     }
   }
@@ -278,12 +300,14 @@ export class ServerGameEngine {
       bomb.col, bomb.row, bomb.range, this.state.map
     );
 
-    // Destroy blocks
+    // Mark blocks as destroying (keep map[r][c]=3 so explosions stop at them)
     for (const block of destroyedBlocks) {
-      this.state.map[block.row][block.col] = 0;
-      this.state.blocks = this.state.blocks.filter(
-        b => !(b.col === block.col && b.row === block.row)
+      const blockState = this.state.blocks.find(
+        b => b.col === block.col && b.row === block.row && b.destroyedAt === null
       );
+      if (blockState) {
+        blockState.destroyedAt = this.state.tick;
+      }
     }
 
     // Chain reaction

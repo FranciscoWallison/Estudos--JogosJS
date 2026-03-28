@@ -1,4 +1,4 @@
-import { GameState, PlayerState, BombState, TileType, GridPosition } from '../shared/types';
+import { GameState, PlayerState, BombState, TileType, GridPosition, TileShrink } from '../shared/types';
 import { PlayerInput } from '../shared/protocol';
 import {
   SCALED_SIZE, MAP_COLS, MAP_ROWS, MOVEMENT_SPEED,
@@ -12,7 +12,9 @@ import { v4 as uuid } from 'uuid';
 export interface EngineOptions {
   customSpawns?: Map<string, GridPosition>;
   customSpeeds?: Map<string, number>;
+  customShrinks?: Map<string, TileShrink>;
   monsterIds?: Set<string>;
+  tileShrinks?: Map<number, TileShrink>;
 }
 
 // Death animation: ~8 frames * 100ms = 800ms. At 60 ticks/sec ≈ 48 ticks.
@@ -33,6 +35,7 @@ export class LocalGameEngine {
   private deathTicks: Map<string, number> = new Map();
   /** Bomb ID that each player is allowed to walk through (the one they placed while standing on it) */
   private bombPassthrough: Map<string, string> = new Map();
+  private tileShrinks?: Map<number, TileShrink>;
 
   constructor(
     playerIds: string[],
@@ -47,6 +50,7 @@ export class LocalGameEngine {
     this.onGameOver = onGameOver;
     this.inputQueues = new Map();
     this.monsterIds = options.monsterIds || new Set();
+    this.tileShrinks = options.tileShrinks;
 
     // Build map copy
     const map = mapLayout.map(row => row.map(t => t as TileType));
@@ -77,6 +81,9 @@ export class LocalGameEngine {
       }
     }
 
+    // Default player shrink
+    const defaultShrink: TileShrink = { top: 6, bottom: 6, left: 6, right: 6 };
+
     // Build players
     const players: Record<string, PlayerState> = {};
     playerIds.forEach((id, index) => {
@@ -84,6 +91,7 @@ export class LocalGameEngine {
       const spawn = customSpawn || SPAWN_POSITIONS[index % SPAWN_POSITIONS.length];
       const pos = gridToPixel(spawn.col, spawn.row);
       const speed = options.customSpeeds?.get(id) ?? 1;
+      const shrink = options.customShrinks?.get(id) ?? defaultShrink;
       players[id] = {
         id,
         name: playerNames.get(id) || `Jogador ${index + 1}`,
@@ -98,6 +106,7 @@ export class LocalGameEngine {
         bombsAvailable: this.monsterIds.has(id) ? 0 : 1,
         bombRange: 1,
         speed,
+        shrink,
       };
       this.inputQueues.set(id, []);
     });
@@ -191,7 +200,11 @@ export class LocalGameEngine {
     // 4. Clean up finished block destruction animations
     this.state.blocks = this.state.blocks.filter(b => {
       if (b.destroyedAt !== null) {
-        return (this.state.tick - b.destroyedAt) < BLOCK_DESTROY_TICKS;
+        if ((this.state.tick - b.destroyedAt) >= BLOCK_DESTROY_TICKS) {
+          // Animation finished: clear the tile so it becomes walkable
+          this.state.map[b.row][b.col] = 0;
+          return false;
+        }
       }
       return true;
     });
@@ -243,10 +256,10 @@ export class LocalGameEngine {
       case 'right': newX += speed; break;
     }
 
-    if (!canMoveTo(newX, newY, SCALED_SIZE, this.state.map)) return;
+    if (!canMoveTo(newX, newY, SCALED_SIZE, this.state.map, this.tileShrinks, player.shrink)) return;
 
     // Check bomb collision
-    if (this.isBlockedByBomb(player.id, newX, newY)) return;
+    if (this.isBlockedByBomb(player, newX, newY)) return;
 
     player.x = newX;
     player.y = newY;
@@ -255,19 +268,19 @@ export class LocalGameEngine {
     this.updateBombPassthrough(player);
   }
 
-  private isBlockedByBomb(playerId: string, newX: number, newY: number): boolean {
-    const shrink = 6;
-    const left = newX + shrink;
-    const right = newX + SCALED_SIZE - shrink;
-    const top = newY + shrink;
-    const bottom = newY + SCALED_SIZE - shrink;
+  private isBlockedByBomb(player: PlayerState, newX: number, newY: number): boolean {
+    const s = player.shrink;
+    const left = newX + s.left;
+    const right = newX + SCALED_SIZE - s.right;
+    const top = newY + s.top;
+    const bottom = newY + SCALED_SIZE - s.bottom;
 
     const colStart = Math.floor(left / SCALED_SIZE);
     const colEnd = Math.floor((right - 1) / SCALED_SIZE);
     const rowStart = Math.floor(top / SCALED_SIZE);
     const rowEnd = Math.floor((bottom - 1) / SCALED_SIZE);
 
-    const passthroughBombId = this.bombPassthrough.get(playerId);
+    const passthroughBombId = this.bombPassthrough.get(player.id);
 
     for (const bomb of this.state.bombs) {
       if (bomb.isExploding) continue;
@@ -291,11 +304,11 @@ export class LocalGameEngine {
     }
 
     // Only remove passthrough when the entire hitbox no longer overlaps the bomb tile
-    const shrink = 6;
-    const left = player.x + shrink;
-    const right = player.x + SCALED_SIZE - shrink;
-    const top = player.y + shrink;
-    const bottom = player.y + SCALED_SIZE - shrink;
+    const s = player.shrink;
+    const left = player.x + s.left;
+    const right = player.x + SCALED_SIZE - s.right;
+    const top = player.y + s.top;
+    const bottom = player.y + SCALED_SIZE - s.bottom;
 
     const bombLeft = bomb.col * SCALED_SIZE;
     const bombRight = bombLeft + SCALED_SIZE;
@@ -370,14 +383,23 @@ export class LocalGameEngine {
       return true;
     });
 
-    // Rebuild explosion cells
+    // Rebuild explosion cells (exclude cells where blocks are being destroyed)
+    const destroyingSet = new Set(
+      this.state.blocks
+        .filter(b => b.destroyedAt !== null)
+        .map(b => `${b.col},${b.row}`)
+    );
     this.state.explosions = [];
     for (const bomb of this.state.bombs) {
       if (bomb.isExploding) {
         const { cells } = calculateExplosionCells(
           bomb.col, bomb.row, bomb.range, this.state.map
         );
-        this.state.explosions.push(...cells);
+        for (const cell of cells) {
+          if (!destroyingSet.has(`${cell.col},${cell.row}`)) {
+            this.state.explosions.push(cell);
+          }
+        }
       }
     }
   }
@@ -390,9 +412,8 @@ export class LocalGameEngine {
       bomb.col, bomb.row, bomb.range, this.state.map
     );
 
-    // Destroy blocks: clear map for collision but keep block for animation
+    // Mark blocks as destroying (keep map[r][c]=3 so explosions stop at them visually)
     for (const block of destroyedBlocks) {
-      this.state.map[block.row][block.col] = 0;
       const blockState = this.state.blocks.find(
         b => b.col === block.col && b.row === block.row && b.destroyedAt === null
       );

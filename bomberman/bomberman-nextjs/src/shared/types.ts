@@ -1,6 +1,13 @@
 export type Direction = 'up' | 'down' | 'left' | 'right';
 export type TileType = 0 | 1 | 2 | 3; // 0=empty, 1=wall(border), 2=wall(pillar), 3=destructible
 
+export interface TileShrink {
+  top: number;
+  bottom: number;
+  left: number;
+  right: number;
+}
+
 export interface Position {
   x: number;
   y: number;
@@ -25,6 +32,7 @@ export interface PlayerState {
   bombsAvailable: number;
   bombRange: number;
   speed: number;
+  shrink: TileShrink;
 }
 
 export interface BombState {

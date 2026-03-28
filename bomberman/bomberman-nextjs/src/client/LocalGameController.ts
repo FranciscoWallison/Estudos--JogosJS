@@ -1,7 +1,7 @@
 import { LocalGameEngine, EngineOptions } from '../engine/LocalGameEngine';
 import { ClientGameEngine } from './ClientGameEngine';
 import { BotController } from './BotController';
-import { GameState, GridPosition, TileType } from '../shared/types';
+import { GameState, GridPosition, TileType, TileShrink } from '../shared/types';
 import { PlayerInput } from '../shared/protocol';
 import { CharacterConfig } from '../utils/character';
 import {
@@ -83,15 +83,25 @@ export class LocalGameController {
     const playerCharCount = config.charactersConfig.length;
     const allCharConfigs = [...config.charactersConfig, ...monstersConfig as CharacterConfig[]];
 
+    // Build per-player shrink configs
+    const customShrinks = new Map<string, TileShrink>();
+    const playerCharConfig = config.charactersConfig[config.playerCharacterIndex];
+    if (playerCharConfig?.shrink) {
+      customShrinks.set(this.playerId, playerCharConfig.shrink);
+    }
+
     // Assign monster names and character indices
     const monsterIdSet = new Set<string>();
     const customSpeeds = new Map<string, number>();
     monsterIds.forEach((id, i) => {
-      const monsterData = (monstersConfig as { name?: string; speed?: number }[])[i % monstersConfig.length];
+      const monsterData = (monstersConfig as { name?: string; speed?: number; shrink?: TileShrink }[])[i % monstersConfig.length];
       this.playerNames.set(id, monsterData?.name || `Monster ${i + 1}`);
       characters.set(id, playerCharCount + (i % monstersConfig.length));
       monsterIdSet.add(id);
       customSpeeds.set(id, monsterData?.speed ?? 0.8);
+      if (monsterData?.shrink) {
+        customShrinks.set(id, monsterData.shrink);
+      }
     });
 
     // Generate random spawn positions for monsters
@@ -102,10 +112,20 @@ export class LocalGameController {
       if (spawns[i]) customSpawns.set(id, spawns[i]);
     });
 
+    // Build per-tile shrink configs from map data
+    const tileShrinks = new Map<number, TileShrink>();
+    for (const tile of (mapConfig.tiles as { type: number; shrink?: TileShrink }[])) {
+      if (tile.shrink) {
+        tileShrinks.set(tile.type, tile.shrink);
+      }
+    }
+
     const engineOptions: EngineOptions = {
       customSpawns,
       customSpeeds,
+      customShrinks: customShrinks.size > 0 ? customShrinks : undefined,
       monsterIds: monsterIdSet,
+      tileShrinks: tileShrinks.size > 0 ? tileShrinks : undefined,
     };
 
     // Create server engine (runs in-browser)
@@ -146,6 +166,7 @@ export class LocalGameController {
         (id, input) => this.serverEngine.pushInput(id, input),
         'medium',
         false, // canPlaceBombs = false
+        tileShrinks.size > 0 ? tileShrinks : undefined,
       ),
     );
   }

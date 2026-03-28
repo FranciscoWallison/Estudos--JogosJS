@@ -3,6 +3,7 @@
     "name": "Ballom",
     "speed": 0.5,
     "imageSrc": "/assets/52695.png",
+    "shrink": { "top": 2, "bottom": 2, "left": 2, "right": 2 },
     "down": [
       { "x": 4, "y": 4 },
       { "x": 21, "y": 4 },
@@ -32,6 +33,7 @@
     "name": "Onil",
     "speed": 0.8,
     "imageSrc": "/assets/52695.png",
+    "shrink": { "top": 2, "bottom": 2, "left": 2, "right": 2 },
     "down": [
       { "x": 4, "y": 21 },
       { "x": 21, "y": 21 },
@@ -61,6 +63,7 @@
     "name": "Dahl",
     "speed": 0.8,
     "imageSrc": "/assets/52695.png",
+    "shrink": { "top": 2, "bottom": 2, "left": 2, "right": 2 },
     "down": [
       { "x": 4, "y": 38 },
       { "x": 21, "y": 38 },
