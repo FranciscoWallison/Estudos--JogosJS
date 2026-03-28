@@ -1,5 +1,5 @@
 export type Direction = 'up' | 'down' | 'left' | 'right';
-export type TileType = 0 | 1 | 2; // 0=empty, 1=wall, 2=destructible
+export type TileType = 0 | 1 | 2 | 3; // 0=empty, 1=wall(border), 2=wall(pillar), 3=destructible
 
 export interface Position {
   x: number;

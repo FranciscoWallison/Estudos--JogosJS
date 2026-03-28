@@ -62,7 +62,7 @@ export class ServerGameEngine {
         const c = spawn.col + offset.dc;
         const r = spawn.row + offset.dr;
         if (c >= 0 && c < MAP_COLS && r >= 0 && r < MAP_ROWS) {
-          if (map[r][c] === 2) map[r][c] = 0;
+          if (map[r][c] === 3) map[r][c] = 0;
         }
       }
     });
@@ -71,8 +71,8 @@ export class ServerGameEngine {
     const blocks = [];
     for (let r = 0; r < MAP_ROWS; r++) {
       for (let c = 0; c < MAP_COLS; c++) {
-        if (map[r][c] === 2) {
-          blocks.push({ col: c, row: r, tileType: 2, destroyedAt: null });
+        if (map[r][c] === 3) {
+          blocks.push({ col: c, row: r, tileType: 3, destroyedAt: null });
         }
       }
     }

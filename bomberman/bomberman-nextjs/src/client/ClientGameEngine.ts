@@ -259,10 +259,11 @@ export class ClientGameEngine {
           );
         }
 
-        // Draw walls on top of floor
-        if (tileType === 1) {
-          const img = this.tileImages.get(1);
-          const frames = this.tileFrames.get(1);
+        // Draw walls on top of floor (type 1 = border walls, type 2 = center pillars)
+        if (tileType === 1 || tileType === 2) {
+          const tileId = tileType as number;
+          const img = this.tileImages.get(tileId);
+          const frames = this.tileFrames.get(tileId);
           if (img && img.complete && frames && frames.length > 0) {
             const frame = frames[0];
             this.ctx.drawImage(
@@ -275,11 +276,11 @@ export class ClientGameEngine {
       }
     }
 
-    // 2b. Destructible blocks from state.blocks (with destruction animation)
-    const blockImg = this.tileImages.get(2);
-    const blockFrames = this.tileFrames.get(2);
-    const destroyFrames = this.tileDestroyFrames.get(2);
-    const blockSpriteSize = this.tileSpriteSize.get(2) || SPRITE_SIZE;
+    // 2b. Destructible blocks from state.blocks (type 3, with destruction animation)
+    const blockImg = this.tileImages.get(3);
+    const blockFrames = this.tileFrames.get(3);
+    const destroyFrames = this.tileDestroyFrames.get(3);
+    const blockSpriteSize = this.tileSpriteSize.get(3) || SPRITE_SIZE;
     if (blockImg && blockImg.complete) {
       for (const block of this.state.blocks) {
         const x = block.col * SCALED_SIZE;

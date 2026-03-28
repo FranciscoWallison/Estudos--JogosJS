@@ -4,14 +4,24 @@ import bombsConfig from '../../data/bombs.json';
 import monstersConfig from '../../data/monsters.json';
 
 const AVAILABLE_IMAGES = [
-  '/assets/bbsprits.png',
-  '/assets/bomberman2.png',
   '/assets/bomberman.png',
+  '/assets/bomberman2.png',
   '/assets/bomberman copy.png',
+  '/assets/bomberman2 - Copia.png',
+  '/assets/bbsprits.png',
   '/assets/Arcade - Bomberman World - Bomberman.png',
-  '/assets/map.png',
+  '/assets/Game Boy Advance - Bomberman Jetters_ Densetsu no Bomberman (JPN) - Enemies & Bosses - Enemies.png',
   '/assets/52695.png',
+  '/assets/52695 (1).png',
   '/assets/60462.png',
+  '/assets/60462 (1).png',
+  '/assets/59913.png',
+  '/assets/59913 (1).png',
+  '/assets/41421.png',
+  '/assets/7944.png',
+  '/assets/map.png',
+  '/assets/44163.jpg',
+  '/assets/44163 (1).jpg',
 ];
 
 const SPRITE_SIZE = 16;

@@ -191,7 +191,7 @@ export class BotController {
       const nc = grid.col + offset.dc;
       const nr = grid.row + offset.dr;
       if (nc >= 0 && nc < MAP_COLS && nr >= 0 && nr < MAP_ROWS) {
-        if (map[nr][nc] === 2) return true;
+        if (map[nr][nc] === 3) return true;
       }
     }
     return false;
@@ -254,7 +254,7 @@ export class BotController {
       if (visited.has(key)) continue;
       if (nc < 0 || nc >= MAP_COLS || nr < 0 || nr >= MAP_ROWS) continue;
 
-      if (map[nr][nc] === 2) return dir; // Adjacent block
+      if (map[nr][nc] === 3) return dir; // Adjacent destructible block
       if (map[nr][nc] === 0) {
         visited.add(key);
         queue.push({ col: nc, row: nr, firstDir: dir });
@@ -274,7 +274,7 @@ export class BotController {
 
         visited.add(key);
 
-        if (map[nr][nc] === 2) return current.firstDir; // Found block, return first direction
+        if (map[nr][nc] === 3) return current.firstDir; // Found destructible block
         if (map[nr][nc] === 0) {
           queue.push({ col: nc, row: nr, firstDir: current.firstDir });
         }

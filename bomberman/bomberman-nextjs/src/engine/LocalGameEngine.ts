@@ -72,7 +72,7 @@ export class LocalGameEngine {
         if (map[r][c] !== 0) continue;
         if (safeZones.has(`${c},${r}`)) continue;
         if (Math.random() < BLOCK_FILL_RATIO) {
-          map[r][c] = 2;
+          map[r][c] = 3 as TileType;
         }
       }
     }
@@ -106,8 +106,8 @@ export class LocalGameEngine {
     const blocks = [];
     for (let r = 0; r < MAP_ROWS; r++) {
       for (let c = 0; c < MAP_COLS; c++) {
-        if (map[r][c] === 2) {
-          blocks.push({ col: c, row: r, tileType: 2, destroyedAt: null });
+        if (map[r][c] === 3) {
+          blocks.push({ col: c, row: r, tileType: 3, destroyedAt: null });
         }
       }
     }
@@ -256,7 +256,7 @@ export class LocalGameEngine {
   }
 
   private isBlockedByBomb(playerId: string, newX: number, newY: number): boolean {
-    const shrink = 4;
+    const shrink = 6;
     const left = newX + shrink;
     const right = newX + SCALED_SIZE - shrink;
     const top = newY + shrink;
@@ -291,7 +291,7 @@ export class LocalGameEngine {
     }
 
     // Only remove passthrough when the entire hitbox no longer overlaps the bomb tile
-    const shrink = 4;
+    const shrink = 6;
     const left = player.x + shrink;
     const right = player.x + SCALED_SIZE - shrink;
     const top = player.y + shrink;

@@ -31,7 +31,7 @@ export function canMoveTo(
   newY: number,
   size: number,
   map: TileType[][],
-  shrink: number = 4
+  shrink: number = 6
 ): boolean {
   const left = newX + shrink;
   const right = newX + size - shrink;
@@ -62,7 +62,7 @@ export function canMoveTo(
 /**
  * Calculate cross-shaped explosion cells from a bomb position.
  * Extends in 4 cardinal directions up to `range` tiles.
- * Stops at walls (type 1) and includes-but-stops-at destructible blocks (type 2).
+ * Stops at walls (type 1, 2) and includes-but-stops-at destructible blocks (type 3).
  */
 export function calculateExplosionCells(
   col: number,
@@ -88,11 +88,11 @@ export function calculateExplosionCells(
       if (nc < 0 || nc >= MAP_COLS || nr < 0 || nr >= MAP_ROWS) break;
 
       const tile = map[nr][nc];
-      if (tile === 1) break; // indestructible wall stops explosion
+      if (tile === 1 || tile === 2) break; // indestructible walls stop explosion
 
       cells.push({ col: nc, row: nr });
 
-      if (tile === 2) {
+      if (tile === 3) {
         destroyedBlocks.push({ col: nc, row: nr });
         break; // destructible block stops explosion after being hit
       }
