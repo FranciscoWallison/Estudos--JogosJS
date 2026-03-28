@@ -44,6 +44,7 @@ export interface BlockState {
   col: number;
   row: number;
   tileType: number;
+  destroyedAt: number | null;
 }
 
 export interface GameState {

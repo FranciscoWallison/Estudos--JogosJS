@@ -17,7 +17,9 @@ interface BombSpriteConfig {
 interface MapTileConfig {
   type: number;
   imageSrc: string;
+  spriteSize?: number;
   frames?: Sprite[];
+  destroyFrames?: Sprite[];
 }
 
 export class ClientGameEngine {
@@ -35,6 +37,8 @@ export class ClientGameEngine {
   private explosionSprites: Sprite[];
   private tileImages: Map<number, HTMLImageElement> = new Map();
   private tileFrames: Map<number, Sprite[] | null> = new Map();
+  private tileDestroyFrames: Map<number, Sprite[]> = new Map();
+  private tileSpriteSize: Map<number, number> = new Map();
 
   // Animation
   private animationFrameId: number = 0;
@@ -100,6 +104,12 @@ export class ClientGameEngine {
       img.src = tile.imageSrc;
       this.tileImages.set(tile.type, img);
       this.tileFrames.set(tile.type, tile.frames || null);
+      if (tile.spriteSize) {
+        this.tileSpriteSize.set(tile.type, tile.spriteSize);
+      }
+      if (tile.destroyFrames && tile.destroyFrames.length > 0) {
+        this.tileDestroyFrames.set(tile.type, tile.destroyFrames);
+      }
     }
 
     // Input handlers
@@ -232,29 +242,66 @@ export class ClientGameEngine {
       this.ctx.drawImage(this.backgroundImage, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
     }
 
-    // 2. All tiles from map (floor, walls, blocks)
+    // 2. Floor and walls from map (type 0 and type 1 only)
     for (let r = 0; r < MAP_ROWS; r++) {
       for (let c = 0; c < MAP_COLS; c++) {
         const tileType = this.state.map[r][c];
 
-        const img = this.tileImages.get(tileType);
-        if (!img || !img.complete) continue;
-
-        const frames = this.tileFrames.get(tileType);
-        const x = c * SCALED_SIZE;
-        const y = r * SCALED_SIZE;
-
-        if (frames && frames.length > 0) {
-          const frame = frames[0];
+        // Always draw floor under everything
+        const floorImg = this.tileImages.get(0);
+        const floorFrames = this.tileFrames.get(0);
+        if (floorImg && floorImg.complete && floorFrames && floorFrames.length > 0) {
+          const ff = floorFrames[0];
           this.ctx.drawImage(
-            img,
-            frame.x, frame.y, SPRITE_SIZE, SPRITE_SIZE,
+            floorImg,
+            ff.x, ff.y, SPRITE_SIZE, SPRITE_SIZE,
+            c * SCALED_SIZE, r * SCALED_SIZE, SCALED_SIZE, SCALED_SIZE
+          );
+        }
+
+        // Draw walls on top of floor
+        if (tileType === 1) {
+          const img = this.tileImages.get(1);
+          const frames = this.tileFrames.get(1);
+          if (img && img.complete && frames && frames.length > 0) {
+            const frame = frames[0];
+            this.ctx.drawImage(
+              img,
+              frame.x, frame.y, SPRITE_SIZE, SPRITE_SIZE,
+              c * SCALED_SIZE, r * SCALED_SIZE, SCALED_SIZE, SCALED_SIZE
+            );
+          }
+        }
+      }
+    }
+
+    // 2b. Destructible blocks from state.blocks (with destruction animation)
+    const blockImg = this.tileImages.get(2);
+    const blockFrames = this.tileFrames.get(2);
+    const destroyFrames = this.tileDestroyFrames.get(2);
+    const blockSpriteSize = this.tileSpriteSize.get(2) || SPRITE_SIZE;
+    if (blockImg && blockImg.complete) {
+      for (const block of this.state.blocks) {
+        const x = block.col * SCALED_SIZE;
+        const y = block.row * SCALED_SIZE;
+
+        if (block.destroyedAt !== null && block.destroyedAt !== undefined && destroyFrames && destroyFrames.length > 0) {
+          // Destruction animation
+          const elapsed = this.state.tick - block.destroyedAt;
+          const ticksPerFrame = 6;
+          const fi = Math.min(Math.floor(elapsed / ticksPerFrame), destroyFrames.length - 1);
+          const frame = destroyFrames[fi];
+          this.ctx.drawImage(
+            blockImg,
+            frame.x, frame.y, blockSpriteSize, blockSpriteSize,
             x, y, SCALED_SIZE, SCALED_SIZE
           );
-        } else {
+        } else if (blockFrames && blockFrames.length > 0) {
+          // Normal block
+          const frame = blockFrames[0];
           this.ctx.drawImage(
-            img,
-            0, 0, SPRITE_SIZE, SPRITE_SIZE,
+            blockImg,
+            frame.x, frame.y, blockSpriteSize, blockSpriteSize,
             x, y, SCALED_SIZE, SCALED_SIZE
           );
         }

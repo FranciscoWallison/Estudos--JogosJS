@@ -15,8 +15,16 @@
       },
       {
         "type": 2,
-        "imageSrc": "/assets/map.png",
-        "frames": [{ "x": 0, "y": 0 }]
+        "imageSrc": "/assets/bbsprits.png",
+        "spriteSize": 12,
+        "frames": [{ "x": 80, "y": 328 }],
+        "destroyFrames": [
+          { "x": 8, "y": 352 },
+          { "x": 32, "y": 352 },
+          { "x": 56, "y": 352 },
+          { "x": 80, "y": 352 },
+          { "x": 104, "y": 352 }
+        ]
       }
     ],
     "layout": [

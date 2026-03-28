@@ -17,6 +17,10 @@ export interface EngineOptions {
 
 // Death animation: ~8 frames * 100ms = 800ms. At 60 ticks/sec ≈ 48 ticks.
 const DEATH_ANIMATION_TICKS = 48;
+// Block destruction: 5 frames * 6 ticks each = 30 ticks (~500ms)
+const BLOCK_DESTROY_TICKS = 30;
+// Percentage of empty tiles to fill with destructible blocks
+const BLOCK_FILL_RATIO = 0.7;
 
 export class LocalGameEngine {
   private state: GameState;
@@ -47,6 +51,32 @@ export class LocalGameEngine {
     // Build map copy
     const map = mapLayout.map(row => row.map(t => t as TileType));
 
+    // Collect all spawn safe zones (player corners + custom monster spawns)
+    const safeZones = new Set<string>();
+    for (const spawn of SPAWN_POSITIONS) {
+      for (const offset of SPAWN_SAFE_OFFSETS) {
+        safeZones.add(`${spawn.col + offset.dc},${spawn.row + offset.dr}`);
+      }
+    }
+    if (options.customSpawns) {
+      for (const spawn of options.customSpawns.values()) {
+        for (const offset of SPAWN_SAFE_OFFSETS) {
+          safeZones.add(`${spawn.col + offset.dc},${spawn.row + offset.dr}`);
+        }
+      }
+    }
+
+    // Fill empty tiles with destructible blocks randomly
+    for (let r = 0; r < MAP_ROWS; r++) {
+      for (let c = 0; c < MAP_COLS; c++) {
+        if (map[r][c] !== 0) continue;
+        if (safeZones.has(`${c},${r}`)) continue;
+        if (Math.random() < BLOCK_FILL_RATIO) {
+          map[r][c] = 2;
+        }
+      }
+    }
+
     // Build players
     const players: Record<string, PlayerState> = {};
     playerIds.forEach((id, index) => {
@@ -72,24 +102,12 @@ export class LocalGameEngine {
       this.inputQueues.set(id, []);
     });
 
-    // Clear safe zones around spawn points
-    playerIds.forEach((_, index) => {
-      const spawn = SPAWN_POSITIONS[index % SPAWN_POSITIONS.length];
-      for (const offset of SPAWN_SAFE_OFFSETS) {
-        const c = spawn.col + offset.dc;
-        const r = spawn.row + offset.dr;
-        if (c >= 0 && c < MAP_COLS && r >= 0 && r < MAP_ROWS) {
-          if (map[r][c] === 2) map[r][c] = 0;
-        }
-      }
-    });
-
     // Build blocks list from map
     const blocks = [];
     for (let r = 0; r < MAP_ROWS; r++) {
       for (let c = 0; c < MAP_COLS; c++) {
         if (map[r][c] === 2) {
-          blocks.push({ col: c, row: r, tileType: 2 });
+          blocks.push({ col: c, row: r, tileType: 2, destroyedAt: null });
         }
       }
     }
@@ -170,19 +188,27 @@ export class LocalGameEngine {
     // 3. Update bombs
     this.updateBombs();
 
-    // 4. Check explosion kills
+    // 4. Clean up finished block destruction animations
+    this.state.blocks = this.state.blocks.filter(b => {
+      if (b.destroyedAt !== null) {
+        return (this.state.tick - b.destroyedAt) < BLOCK_DESTROY_TICKS;
+      }
+      return true;
+    });
+
+    // 5. Check explosion kills
     this.checkExplosionKills();
 
-    // 5. Check monster-touch kills (monsters touching player)
+    // 6. Check monster-touch kills (monsters touching player)
     this.checkMonsterTouchKills();
 
-    // 6. Mark death animation completed
+    // 7. Mark death animation completed
     this.updateDeathAnimations();
 
-    // 7. Check win condition
+    // 8. Check win condition
     this.checkWinCondition();
 
-    // 8. Send snapshot at reduced rate
+    // 9. Send snapshot at reduced rate
     if (this.state.tick % SNAPSHOT_INTERVAL_TICKS === 0) {
       this.onSnapshot(this.getStateCopy());
     }
@@ -364,12 +390,15 @@ export class LocalGameEngine {
       bomb.col, bomb.row, bomb.range, this.state.map
     );
 
-    // Destroy blocks
+    // Destroy blocks: clear map for collision but keep block for animation
     for (const block of destroyedBlocks) {
       this.state.map[block.row][block.col] = 0;
-      this.state.blocks = this.state.blocks.filter(
-        b => !(b.col === block.col && b.row === block.row)
+      const blockState = this.state.blocks.find(
+        b => b.col === block.col && b.row === block.row && b.destroyedAt === null
       );
+      if (blockState) {
+        blockState.destroyedAt = this.state.tick;
+      }
     }
 
     // Chain reaction

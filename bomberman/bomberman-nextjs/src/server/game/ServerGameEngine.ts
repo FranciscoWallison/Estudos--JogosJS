@@ -72,7 +72,7 @@ export class ServerGameEngine {
     for (let r = 0; r < MAP_ROWS; r++) {
       for (let c = 0; c < MAP_COLS; c++) {
         if (map[r][c] === 2) {
-          blocks.push({ col: c, row: r, tileType: 2 });
+          blocks.push({ col: c, row: r, tileType: 2, destroyedAt: null });
         }
       }
     }
