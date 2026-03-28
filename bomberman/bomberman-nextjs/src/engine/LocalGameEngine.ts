@@ -66,7 +66,7 @@ export class LocalGameEngine {
         deathCompleted: false,
         frameIndex: 0,
         bombsAvailable: this.monsterIds.has(id) ? 0 : 1,
-        bombRange: 2,
+        bombRange: 1,
         speed,
       };
       this.inputQueues.set(id, []);
