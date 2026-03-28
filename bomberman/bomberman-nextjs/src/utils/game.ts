@@ -1,4 +1,4 @@
-import { Character, CharacterConfig } from './character';
+import { Character, CharacterConfig, Sprite } from './character';
 import { Player } from './player';
 import { Enemy } from './enemy';
 import { Bomb } from './bomb';
@@ -127,6 +127,12 @@ export class Game {
       }
     } else {
       this.player.setDirection(event.key, isKeyDown);
+    }
+  }
+
+  selectCharacter(index: number): void {
+    if (index >= 0 && index < this.characters.length) {
+      this.currentCharacterIndex = index;
     }
   }
 

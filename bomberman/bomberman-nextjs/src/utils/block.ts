@@ -4,7 +4,8 @@ export class Block {
     width: number;
     height: number;
     image: HTMLImageElement;
-  
+    frames?: { x: number; y: number }[];
+
     constructor(x: number, y: number, width: number, height: number, imageSrc: string) {
       this.x = x;
       this.y = y;
