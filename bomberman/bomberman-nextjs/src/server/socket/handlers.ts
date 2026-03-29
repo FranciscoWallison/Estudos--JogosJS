@@ -31,7 +31,7 @@ export function setupSocketHandlers(io: TypedServer, gameManager: GameManager): 
         }
 
         const playerId = decoded.uid;
-        const { roomId, playerName, characterIndex, expectedPlayers } = data;
+        const { roomId, playerName, characterIndex, expectedPlayers, roomOptions } = data;
 
         // Cancelar disconnect pendente se o jogador reconectou
         const pendingKey = `${roomId}:${playerId}`;
@@ -51,8 +51,14 @@ export function setupSocketHandlers(io: TypedServer, gameManager: GameManager): 
         }
         roomPlayers.get(roomId)!.set(playerId, { name: playerName, characterIndex });
 
+        // Se jogo ja esta ativo, rejeitar
+        if (gameManager.getEngine(roomId)) {
+          socket.emit('game:error', { message: 'Jogo ja esta em andamento.' });
+          return;
+        }
+
         // Se nao ha jogo pendente, preparar usando a lista completa de jogadores esperados
-        if (!gameManager.hasPendingGame(roomId) && !gameManager.getEngine(roomId)) {
+        if (!gameManager.hasPendingGame(roomId)) {
           // Usar a lista de jogadores esperados enviada pelo client (da sala do Firebase)
           const allPlayers = new Map<string, { name: string; characterIndex: number }>();
           if (expectedPlayers && expectedPlayers.length > 0) {
@@ -64,7 +70,8 @@ export function setupSocketHandlers(io: TypedServer, gameManager: GameManager): 
             allPlayers.set(playerId, { name: playerName, characterIndex });
           }
           console.log(`Preparando jogo na sala ${roomId} com ${allPlayers.size} jogadores esperados`);
-          gameManager.prepareGame(roomId, allPlayers);
+          const options = roomOptions || { blocks: true, items: true, monsters: false };
+          gameManager.prepareGame(roomId, allPlayers, options);
         }
 
         // Registrar jogador como conectado

@@ -1,4 +1,4 @@
-import { GameState, PlayerState, BombState, TileType, GridPosition, TileShrink, ItemType } from '../../shared/types';
+import { GameState, PlayerState, BombState, TileType, GridPosition, TileShrink, ItemType, RoomOptions } from '../../shared/types';
 import { PlayerInput } from '../../shared/protocol';
 import {
   SCALED_SIZE, MAP_COLS, MAP_ROWS, MOVEMENT_SPEED,
@@ -8,9 +8,17 @@ import {
   ITEM_DROP_CHANCE, SPEED_UP_INCREMENT, MAX_BOMB_RANGE, MAX_BOMBS, MAX_SPEED,
 } from '../../shared/constants';
 import { canMoveTo, calculateExplosionCells, pixelToGrid, gridToPixel } from '../../shared/collision';
+import { getRandomMonsterSpawns } from '../../shared/mapUtils';
+import { BotController } from '../../engine/BotController';
 import { v4 as uuid } from 'uuid';
+import monstersConfig from '../../data/monsters.json';
+import mapConfig from '../../data/map.json';
 
 const BLOCK_DESTROY_TICKS = 30;
+const BLOCK_FILL_RATIO = 0.7;
+const MONSTER_COUNT = 4;
+
+const DEFAULT_ROOM_OPTIONS: RoomOptions = { blocks: true, items: true, monsters: false };
 
 export class ServerGameEngine {
   private state: GameState;
@@ -23,6 +31,11 @@ export class ServerGameEngine {
   private bombPassthrough: Map<string, string> = new Map();
   /** Items waiting to spawn after block destruction animation finishes */
   private pendingItems: Map<string, ItemType> = new Map();
+  private roomOptions: RoomOptions;
+  private monsterIds: Set<string> = new Set();
+  private botControllers: BotController[] = [];
+  private botUpdateInterval: ReturnType<typeof setInterval> | null = null;
+  private tileShrinks?: Map<number, TileShrink>;
 
   constructor(
     playerIds: string[],
@@ -31,16 +44,81 @@ export class ServerGameEngine {
     mapLayout: number[][],
     onSnapshot: (state: GameState) => void,
     onGameOver: (winnerId: string | null) => void,
+    roomOptions: RoomOptions = DEFAULT_ROOM_OPTIONS,
+    playerCharacterCount: number = 0,
   ) {
     this.onSnapshot = onSnapshot;
     this.onGameOver = onGameOver;
     this.inputQueues = new Map();
+    this.roomOptions = roomOptions;
 
     // Build map copy
     const map = mapLayout.map(row => row.map(t => t as TileType));
 
+    // Build per-tile shrink configs from map data (parity with LocalGameEngine)
+    const tileShrinks = new Map<number, TileShrink>();
+    for (const tile of (mapConfig.tiles as { type: number; shrink?: TileShrink }[])) {
+      if (tile.shrink) {
+        tileShrinks.set(tile.type, tile.shrink);
+      }
+    }
+    this.tileShrinks = tileShrinks.size > 0 ? tileShrinks : undefined;
+
     // Default player shrink
     const defaultShrink: TileShrink = { top: 6, bottom: 6, left: 6, right: 6 };
+
+    // Build safe zones around player spawns
+    const safeZones = new Set<string>();
+    playerIds.forEach((_, index) => {
+      const spawn = SPAWN_POSITIONS[index % SPAWN_POSITIONS.length];
+      for (const offset of SPAWN_SAFE_OFFSETS) {
+        safeZones.add(`${spawn.col + offset.dc},${spawn.row + offset.dr}`);
+      }
+    });
+
+    // Setup monsters if enabled (before block fill so monster spawns are safe)
+    let monsterSpawns: GridPosition[] = [];
+    if (roomOptions.monsters) {
+      // Get random spawn positions on the clean map (before block fill)
+      monsterSpawns = getRandomMonsterSpawns(map, MONSTER_COUNT);
+      // Add monster spawn safe zones
+      for (const spawn of monsterSpawns) {
+        for (const offset of SPAWN_SAFE_OFFSETS) {
+          safeZones.add(`${spawn.col + offset.dc},${spawn.row + offset.dr}`);
+        }
+      }
+    }
+
+    // Handle blocks option
+    if (roomOptions.blocks) {
+      // Fill empty tiles with destructible blocks (same as LocalGameEngine)
+      for (let r = 0; r < MAP_ROWS; r++) {
+        for (let c = 0; c < MAP_COLS; c++) {
+          if (map[r][c] !== 0) continue;
+          if (safeZones.has(`${c},${r}`)) continue;
+          if (Math.random() < BLOCK_FILL_RATIO) {
+            map[r][c] = 3 as TileType;
+          }
+        }
+      }
+    } else {
+      // Blocks OFF: strip ALL type 3 tiles from the base layout
+      for (let r = 0; r < MAP_ROWS; r++) {
+        for (let c = 0; c < MAP_COLS; c++) {
+          if (map[r][c] === 3) map[r][c] = 0;
+        }
+      }
+    }
+
+    // Clear safe zones (in case base layout had blocks in spawn areas)
+    for (const key of safeZones) {
+      const [cs, rs] = key.split(',');
+      const c = parseInt(cs);
+      const r = parseInt(rs);
+      if (c >= 0 && c < MAP_COLS && r >= 0 && r < MAP_ROWS) {
+        if (map[r][c] === 3) map[r][c] = 0;
+      }
+    }
 
     // Build players
     const players: Record<string, PlayerState> = {};
@@ -62,21 +140,51 @@ export class ServerGameEngine {
         bombRange: 2,
         speed: 1,
         shrink: defaultShrink,
+        isMonster: false,
       };
       this.inputQueues.set(id, []);
     });
 
-    // Clear safe zones around spawn points
-    playerIds.forEach((_, index) => {
-      const spawn = SPAWN_POSITIONS[index % SPAWN_POSITIONS.length];
-      for (const offset of SPAWN_SAFE_OFFSETS) {
-        const c = spawn.col + offset.dc;
-        const r = spawn.row + offset.dr;
-        if (c >= 0 && c < MAP_COLS && r >= 0 && r < MAP_ROWS) {
-          if (map[r][c] === 3) map[r][c] = 0;
-        }
+    // Create monster players if enabled
+    if (roomOptions.monsters) {
+      const monsterIds: string[] = [];
+      for (let i = 0; i < MONSTER_COUNT; i++) {
+        const monsterId = `monster-${i}`;
+        monsterIds.push(monsterId);
+        this.monsterIds.add(monsterId);
+
+        const monsterData = (monstersConfig as { name?: string; speed?: number; shrink?: TileShrink }[])[i % monstersConfig.length];
+        const spawn = monsterSpawns[i];
+        if (!spawn) continue;
+
+        const pos = gridToPixel(spawn.col, spawn.row);
+        const charIndex = playerCharacterCount + (i % monstersConfig.length);
+
+        players[monsterId] = {
+          id: monsterId,
+          name: monsterData?.name || `Monster ${i + 1}`,
+          characterIndex: charIndex,
+          x: pos.x,
+          y: pos.y,
+          direction: 'down',
+          isMoving: false,
+          isDead: false,
+          deathCompleted: false,
+          frameIndex: 0,
+          bombsAvailable: 0,
+          bombRange: 1,
+          speed: monsterData?.speed ?? 0.8,
+          shrink: (monsterData?.shrink as TileShrink) ?? defaultShrink,
+          isMonster: true,
+        };
+        this.inputQueues.set(monsterId, []);
       }
-    });
+
+      // Create BotControllers for monsters (no bombs, medium difficulty)
+      this.botControllers = monsterIds.map(mId =>
+        new BotController(mId, (id, input) => this.pushInput(id, input), 'medium', false, this.tileShrinks),
+      );
+    }
 
     // Build blocks list from map
     const blocks = [];
@@ -101,7 +209,9 @@ export class ServerGameEngine {
       countdownSeconds: null,
     };
 
-    console.log(`[GameEngine] Criado com ${playerIds.length} jogadores:`, playerIds.map(id => `${playerNames.get(id)} (${id})`));
+    const allPlayerNames = Object.values(players).map(p => `${p.name} (${p.id})`);
+    console.log(`[GameEngine] Criado com ${allPlayerNames.length} entidades:`, allPlayerNames);
+    console.log(`[GameEngine] Opcoes: blocks=${roomOptions.blocks}, items=${roomOptions.items}, monsters=${roomOptions.monsters}`);
   }
 
   pushInput(playerId: string, input: PlayerInput): void {
@@ -131,6 +241,18 @@ export class ServerGameEngine {
 
   private startGameLoop(): void {
     this.loopInterval = setInterval(() => this.tick(), SERVER_TICK_MS);
+
+    // Start bot update loop if monsters are enabled
+    if (this.botControllers.length > 0) {
+      this.botUpdateInterval = setInterval(() => {
+        if (this.state.status === 'playing') {
+          const stateCopy = this.getStateCopy();
+          for (const bot of this.botControllers) {
+            bot.update(stateCopy);
+          }
+        }
+      }, SERVER_TICK_MS);
+    }
   }
 
   stop(): void {
@@ -141,6 +263,10 @@ export class ServerGameEngine {
     if (this.countdownInterval) {
       clearInterval(this.countdownInterval);
       this.countdownInterval = null;
+    }
+    if (this.botUpdateInterval) {
+      clearInterval(this.botUpdateInterval);
+      this.botUpdateInterval = null;
     }
   }
 
@@ -173,17 +299,19 @@ export class ServerGameEngine {
         if ((this.state.tick - b.destroyedAt) >= BLOCK_DESTROY_TICKS) {
           // Animation finished: clear the tile so it becomes walkable
           this.state.map[b.row][b.col] = 0;
-          // Spawn pending item at this position
-          const key = `${b.col},${b.row}`;
-          const itemType = this.pendingItems.get(key);
-          if (itemType) {
-            this.pendingItems.delete(key);
-            this.state.items.push({
-              id: uuid(),
-              type: itemType,
-              col: b.col,
-              row: b.row,
-            });
+          // Spawn pending item at this position (only if items enabled)
+          if (this.roomOptions.items) {
+            const key = `${b.col},${b.row}`;
+            const itemType = this.pendingItems.get(key);
+            if (itemType) {
+              this.pendingItems.delete(key);
+              this.state.items.push({
+                id: uuid(),
+                type: itemType,
+                col: b.col,
+                row: b.row,
+              });
+            }
           }
           return false;
         }
@@ -200,10 +328,15 @@ export class ServerGameEngine {
     // 7. Check explosion kills
     this.checkExplosionKills();
 
-    // 8. Check win condition
+    // 8. Check monster touch kills
+    if (this.monsterIds.size > 0) {
+      this.checkMonsterTouchKills();
+    }
+
+    // 9. Check win condition
     this.checkWinCondition();
 
-    // 9. Send snapshot at reduced rate
+    // 10. Send snapshot at reduced rate
     if (this.state.tick % SNAPSHOT_INTERVAL_TICKS === 0) {
       this.onSnapshot(this.getStateCopy());
     }
@@ -238,7 +371,7 @@ export class ServerGameEngine {
       case 'right': newX += speed; break;
     }
 
-    if (!canMoveTo(newX, newY, SCALED_SIZE, this.state.map, undefined, player.shrink)) return;
+    if (!canMoveTo(newX, newY, SCALED_SIZE, this.state.map, this.tileShrinks, player.shrink)) return;
 
     // Check bomb collision
     if (this.isBlockedByBomb(player, newX, newY)) return;
@@ -402,11 +535,13 @@ export class ServerGameEngine {
       );
       if (blockState) {
         blockState.destroyedAt = this.state.tick;
-        // Random chance to spawn an item after block destruction animation
-        const key = `${block.col},${block.row}`;
-        if (!this.pendingItems.has(key) && Math.random() < ITEM_DROP_CHANCE) {
-          const randomType = itemTypes[Math.floor(Math.random() * itemTypes.length)];
-          this.pendingItems.set(key, randomType);
+        // Random chance to spawn an item after block destruction animation (only if items enabled)
+        if (this.roomOptions.items) {
+          const key = `${block.col},${block.row}`;
+          if (!this.pendingItems.has(key) && Math.random() < ITEM_DROP_CHANCE) {
+            const randomType = itemTypes[Math.floor(Math.random() * itemTypes.length)];
+            this.pendingItems.set(key, randomType);
+          }
         }
       }
     }
@@ -430,6 +565,7 @@ export class ServerGameEngine {
 
     for (const player of Object.values(this.state.players)) {
       if (player.isDead) continue;
+      if (this.monsterIds.has(player.id)) continue; // monsters don't collect items
 
       const grid = pixelToGrid(
         player.x + SCALED_SIZE / 2,
@@ -484,23 +620,54 @@ export class ServerGameEngine {
     }
   }
 
+  private checkMonsterTouchKills(): void {
+    const humans = Object.values(this.state.players)
+      .filter(p => !this.monsterIds.has(p.id) && !p.isDead);
+    const monsters = Object.values(this.state.players)
+      .filter(p => this.monsterIds.has(p.id) && !p.isDead);
+
+    for (const human of humans) {
+      const hGrid = pixelToGrid(
+        human.x + SCALED_SIZE / 2,
+        human.y + SCALED_SIZE / 2,
+      );
+      for (const monster of monsters) {
+        const mGrid = pixelToGrid(
+          monster.x + SCALED_SIZE / 2,
+          monster.y + SCALED_SIZE / 2,
+        );
+        if (hGrid.col === mGrid.col && hGrid.row === mGrid.row) {
+          human.isDead = true;
+          human.isMoving = false;
+          break;
+        }
+      }
+    }
+  }
+
   private checkWinCondition(): void {
     if (this.state.status !== 'playing') return;
 
-    const allPlayers = Object.values(this.state.players);
-    const alivePlayers = allPlayers.filter(p => !p.isDead);
+    // Only count human players for win condition (monsters are environmental hazards)
+    const aliveHumans = Object.values(this.state.players)
+      .filter(p => !this.monsterIds.has(p.id) && !p.isDead);
 
-    if (alivePlayers.length <= 1) {
-      console.log(`[GameEngine] Fim de jogo! Total: ${allPlayers.length}, Vivos: ${alivePlayers.length}`);
-      for (const p of allPlayers) {
-        console.log(`  - ${p.name} (${p.id}): isDead=${p.isDead}, pos=(${p.x},${p.y})`);
-      }
-      this.state.status = 'finished';
-      this.state.winnerId = alivePlayers.length === 1 ? alivePlayers[0].id : null;
-      this.onSnapshot(this.getStateCopy());
-      this.onGameOver(this.state.winnerId);
-      this.stop();
+    if (aliveHumans.length <= 1) {
+      this.finishGame(aliveHumans.length === 1 ? aliveHumans[0].id : null);
     }
+  }
+
+  private finishGame(winnerId: string | null): void {
+    const allPlayers = Object.values(this.state.players);
+    console.log(`[GameEngine] Fim de jogo! Humanos vivos: ${allPlayers.filter(p => !p.isDead && !this.monsterIds.has(p.id)).length}`);
+    for (const p of allPlayers) {
+      console.log(`  - ${p.name} (${p.id}): isDead=${p.isDead}`);
+    }
+    this.state.status = 'finished';
+    this.state.winnerId = winnerId;
+    this.onSnapshot(this.getStateCopy());
+    this.onGameOver(winnerId);
+    this.stop();
   }
 
   removePlayer(playerId: string): void {

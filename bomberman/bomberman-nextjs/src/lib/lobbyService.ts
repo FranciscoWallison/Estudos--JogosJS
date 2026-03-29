@@ -15,6 +15,7 @@ import {
 } from 'firebase/database';
 import { database } from './firebase';
 import { MAX_PLAYERS, MIN_PLAYERS } from '@/shared/constants';
+import { RoomOptions } from '@/shared/types';
 
 const DB_TIMEOUT_MS = 8000;
 
@@ -59,6 +60,7 @@ export interface RoomData {
     maxPlayers: number;
     status: 'waiting' | 'playing' | 'finished';
     createdAt: number;
+    options: RoomOptions;
   };
   players: Record<string, {
     name: string;
@@ -90,6 +92,11 @@ export async function createRoom(
         maxPlayers: Math.min(Math.max(maxPlayers, MIN_PLAYERS), MAX_PLAYERS),
         status: 'waiting',
         createdAt: Date.now(),
+        options: {
+          blocks: true,
+          items: true,
+          monsters: false,
+        },
       },
       players: {
         [userId]: {
@@ -233,6 +240,21 @@ export async function changeCharacter(
 ): Promise<void> {
   const playerRef = ref(database, `rooms/${roomId}/players/${userId}`);
   await update(playerRef, { characterIndex });
+}
+
+/**
+ * Atualizar opcoes da sala (host only)
+ */
+export async function updateRoomOptions(
+  roomId: string,
+  options: Partial<RoomOptions>
+): Promise<void> {
+  try {
+    const optionsRef = ref(database, `rooms/${roomId}/info/options`);
+    await withTimeout(update(optionsRef, options), 'atualizar opcoes');
+  } catch (err) {
+    handleDatabaseError(err, 'atualizar opcoes');
+  }
 }
 
 /**

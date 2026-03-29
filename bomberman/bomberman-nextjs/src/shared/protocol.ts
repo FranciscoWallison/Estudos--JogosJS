@@ -1,4 +1,4 @@
-import { Direction, GameState, RoomInfo } from './types';
+import { Direction, GameState, RoomInfo, RoomOptions } from './types';
 
 // --- Player input (client -> server) ---
 export interface PlayerInput {
@@ -15,6 +15,7 @@ export interface ClientToServerEvents {
     playerName: string;
     characterIndex: number;
     expectedPlayers: { id: string; name: string; characterIndex: number }[];
+    roomOptions: RoomOptions;
   }) => void;
   'game:input': (data: PlayerInput) => void;
   'game:leave': () => void;

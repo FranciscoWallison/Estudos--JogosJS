@@ -31,6 +31,24 @@ button {
   transition: all 0.15s ease;
 }
 
+html, body {
+  overflow-x: hidden;
+}
+
 canvas {
   image-rendering: pixelated;
+  max-width: 100%;
+  height: auto;
+}
+
+@media (max-width: 1024px) {
+  body {
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 600px) {
+  body {
+    font-size: 13px;
+  }
 }

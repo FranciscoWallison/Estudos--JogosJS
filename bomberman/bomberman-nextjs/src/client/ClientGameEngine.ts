@@ -153,6 +153,8 @@ export class ClientGameEngine {
   }
 
   applyServerState(serverState: GameState): void {
+    // Ensure items array exists (backward compat with old state snapshots)
+    if (!serverState.items) serverState.items = [];
     this.state = serverState;
 
     // Server reconciliation for local player
@@ -253,6 +255,33 @@ export class ClientGameEngine {
     }
   }
 
+  /** Start movement in a direction (called by touch gamepad) */
+  startMove(direction: Direction): void {
+    const input: PlayerInput = { type: 'move', direction, seq: ++this.inputSeq };
+    this.sendInput(input);
+    this.pendingInputs.push(input);
+    if (this.localPlayerState && !this.localPlayerState.isDead) {
+      this.localPlayerState.direction = direction;
+      this.localPlayerState.isMoving = true;
+    }
+  }
+
+  /** Stop movement (called by touch gamepad on release) */
+  stopMove(): void {
+    const input: PlayerInput = { type: 'stop', seq: ++this.inputSeq };
+    this.sendInput(input);
+    this.pendingInputs.push(input);
+    if (this.localPlayerState) {
+      this.localPlayerState.isMoving = false;
+    }
+  }
+
+  /** Place bomb (called by touch gamepad) */
+  triggerBomb(): void {
+    const input: PlayerInput = { type: 'bomb', seq: ++this.inputSeq };
+    this.sendInput(input);
+  }
+
   start(): void {
     this.animationFrameId = requestAnimationFrame((t) => this.renderLoop(t));
   }
@@ -345,7 +374,7 @@ export class ClientGameEngine {
     }
 
     // 2c. Items on the ground
-    if (this.itemImage && this.itemImage.complete && this.state.items.length > 0) {
+    if (this.itemImage && this.itemImage.complete && this.state.items && this.state.items.length > 0) {
       for (const item of this.state.items) {
         const sprite = this.itemSprites.get(item.type);
         if (!sprite) continue;

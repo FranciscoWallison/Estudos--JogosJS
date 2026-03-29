@@ -1,11 +1,12 @@
 import { createServer } from 'http';
+import { networkInterfaces } from 'os';
 import next from 'next';
 import { Server as SocketIOServer } from 'socket.io';
 import { GameManager } from './src/server/game/GameManager';
 import { setupSocketHandlers } from './src/server/socket/handlers';
 
 const dev = process.env.NODE_ENV !== 'production';
-const hostname = 'localhost';
+const hostname = '0.0.0.0';
 const port = parseInt(process.env.PORT || '3000', 10);
 
 const app = next({ dev, hostname, port });
@@ -25,7 +26,15 @@ app.prepare().then(() => {
   const gameManager = new GameManager();
   setupSocketHandlers(io, gameManager);
 
-  httpServer.listen(port, () => {
-    console.log(`> Servidor pronto em http://${hostname}:${port}`);
+  httpServer.listen(port, hostname, () => {
+    console.log(`> Servidor pronto em http://localhost:${port}`);
+    const nets = networkInterfaces();
+    for (const name of Object.keys(nets)) {
+      for (const net of nets[name] || []) {
+        if (net.family === 'IPv4' && !net.internal) {
+          console.log(`> Acesso na rede: http://${net.address}:${port}`);
+        }
+      }
+    }
   });
 });

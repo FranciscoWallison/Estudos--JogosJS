@@ -1,29 +1,46 @@
 import { ServerGameEngine } from './ServerGameEngine';
-import { GameState } from '../../shared/types';
+import { GameState, RoomOptions } from '../../shared/types';
 import mapConfig from '../../data/map.json';
+import charactersConfig from '../../data/data.json';
 
 interface PendingGame {
   roomId: string;
   expectedPlayers: Map<string, { name: string; characterIndex: number }>;
   connectedPlayers: Set<string>;
+  roomOptions: RoomOptions;
 }
+
+const PENDING_GAME_TIMEOUT_MS = 30000;
 
 export class GameManager {
   private activeGames: Map<string, ServerGameEngine> = new Map();
   private pendingGames: Map<string, PendingGame> = new Map();
+  private pendingTimeouts: Map<string, ReturnType<typeof setTimeout>> = new Map();
 
   /**
    * Preparar uma partida - chamado quando o host inicia o jogo
    */
   prepareGame(
     roomId: string,
-    players: Map<string, { name: string; characterIndex: number }>
+    players: Map<string, { name: string; characterIndex: number }>,
+    roomOptions: RoomOptions = { blocks: true, items: true, monsters: false }
   ): void {
     this.pendingGames.set(roomId, {
       roomId,
       expectedPlayers: players,
       connectedPlayers: new Set(),
+      roomOptions,
     });
+
+    // Auto-cancel pending game if not all players connect in time
+    const timeout = setTimeout(() => {
+      if (this.pendingGames.has(roomId)) {
+        console.log(`[GameManager] Timeout: cancelando jogo pendente na sala ${roomId}`);
+        this.pendingGames.delete(roomId);
+        this.pendingTimeouts.delete(roomId);
+      }
+    }, PENDING_GAME_TIMEOUT_MS);
+    this.pendingTimeouts.set(roomId, timeout);
   }
 
   /**
@@ -51,6 +68,13 @@ export class GameManager {
     const pending = this.pendingGames.get(roomId);
     if (!pending) return null;
 
+    // Clear pending timeout since all players connected
+    const timeout = this.pendingTimeouts.get(roomId);
+    if (timeout) {
+      clearTimeout(timeout);
+      this.pendingTimeouts.delete(roomId);
+    }
+
     const playerIds = Array.from(pending.expectedPlayers.keys());
     const playerNames = new Map<string, string>();
     const playerCharacters = new Map<string, number>();
@@ -66,7 +90,9 @@ export class GameManager {
       playerCharacters,
       mapConfig.layout,
       onSnapshot,
-      onGameOver
+      onGameOver,
+      pending.roomOptions,
+      charactersConfig.length,
     );
 
     this.activeGames.set(roomId, engine);
@@ -115,5 +141,10 @@ export class GameManager {
     }
     this.activeGames.delete(roomId);
     this.pendingGames.delete(roomId);
+    const timeout = this.pendingTimeouts.get(roomId);
+    if (timeout) {
+      clearTimeout(timeout);
+      this.pendingTimeouts.delete(roomId);
+    }
   }
 }

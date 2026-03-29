@@ -33,6 +33,7 @@ export interface PlayerState {
   bombRange: number;
   speed: number;
   shrink: TileShrink;
+  isMonster?: boolean;
 }
 
 export interface BombState {
@@ -75,6 +76,12 @@ export interface GameState {
   status: 'waiting' | 'countdown' | 'playing' | 'finished';
   winnerId: string | null;
   countdownSeconds: number | null;
+}
+
+export interface RoomOptions {
+  blocks: boolean;
+  items: boolean;
+  monsters: boolean;
 }
 
 export interface RoomInfo {

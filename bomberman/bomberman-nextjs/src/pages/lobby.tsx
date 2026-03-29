@@ -65,8 +65,10 @@ export default function Lobby() {
       flexDirection: 'column',
       alignItems: 'center',
       gap: '20px',
-      paddingTop: '40px',
+      padding: '40px 16px 24px',
       minHeight: '100vh',
+      width: '100%',
+      boxSizing: 'border-box',
     }}>
       <h1 style={{ fontSize: '32px', color: '#ffd700', margin: 0 }}>Salas Disponiveis</h1>
 

@@ -106,15 +106,18 @@ export default function Home() {
       flexDirection: 'column',
       alignItems: 'center',
       gap: '24px',
-      paddingTop: '40px',
+      padding: '40px 16px 24px',
       minHeight: '100vh',
+      width: '100%',
+      boxSizing: 'border-box',
     }}>
       <h1 style={{
-        fontSize: '48px',
+        fontSize: 'clamp(28px, 8vw, 48px)',
         fontWeight: 'bold',
         color: '#ffd700',
         textShadow: '2px 2px 4px rgba(0,0,0,0.5)',
         margin: 0,
+        textAlign: 'center',
       }}>
         BOMBERMAN ONLINE
       </h1>

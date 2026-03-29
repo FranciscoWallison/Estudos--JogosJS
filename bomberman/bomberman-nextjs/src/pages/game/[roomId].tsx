@@ -2,11 +2,15 @@ import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSocket } from '@/hooks/useSocket';
-import { ClientGameEngine } from '@/client/ClientGameEngine';
-import { GameState } from '@/shared/types';
+import { ClientGameEngine, ItemsSpriteConfig } from '@/client/ClientGameEngine';
+import { GameState, RoomOptions } from '@/shared/types';
+import { CharacterConfig } from '@/utils/character';
 import { PlayerInput } from '@/shared/protocol';
+import TouchGamepad from '@/components/TouchGamepad';
 import charactersConfig from '@/data/data.json';
+import monstersConfig from '@/data/monsters.json';
 import bombConfig from '@/data/bombs.json';
+import itemsConfig from '@/data/items.json';
 import mapConfig from '@/data/map.json';
 
 export default function GamePage() {
@@ -19,6 +23,11 @@ export default function GamePage() {
   const engineRef = useRef<ClientGameEngine | null>(null);
   const [gameStatus, setGameStatus] = useState<string>('connecting');
   const [error, setError] = useState<string | null>(null);
+  const [isTouchDevice, setIsTouchDevice] = useState(false);
+
+  useEffect(() => {
+    setIsTouchDevice('ontouchstart' in window);
+  }, []);
 
   const playerName = typeof window !== 'undefined' ? sessionStorage.getItem('playerName') || 'Jogador' : 'Jogador';
   const characterIndex = typeof window !== 'undefined' ? parseInt(sessionStorage.getItem('characterIndex') || '0') : 0;
@@ -51,12 +60,20 @@ export default function GamePage() {
         if (stored) expectedPlayers = JSON.parse(stored);
       } catch {}
 
+      // Ler opcoes da sala
+      let roomOptions: RoomOptions = { blocks: true, items: true, monsters: false };
+      try {
+        const stored = sessionStorage.getItem('roomOptions');
+        if (stored) roomOptions = JSON.parse(stored);
+      } catch {}
+
       socket.emit('game:join', {
         roomId,
         token,
         playerName,
         characterIndex,
         expectedPlayers,
+        roomOptions,
       });
       hasJoinedRef.current = true;
     };
@@ -69,16 +86,19 @@ export default function GamePage() {
 
       if (!engineRef.current && canvasRef.current && user) {
         // Criar engine na primeira vez que receber estado
+        // Combine player + monster character configs for rendering
+        const allCharConfigs = [...charactersConfig, ...monstersConfig as CharacterConfig[]];
         const engine = new ClientGameEngine(
           canvasRef.current,
           user.uid,
-          charactersConfig,
+          allCharConfigs,
           bombConfig,
           mapConfig.backgroundImageSrc,
           mapConfig.tiles,
           (input: PlayerInput) => {
             socket.emit('game:input', input);
-          }
+          },
+          itemsConfig as ItemsSpriteConfig,
         );
         engineRef.current = engine;
         engine.start();
@@ -173,14 +193,32 @@ export default function GamePage() {
         </div>
       )}
 
-      <canvas
-        ref={canvasRef}
-        style={{
-          border: '2px solid #333',
-          borderRadius: '4px',
-          imageRendering: 'pixelated',
-        }}
-      />
+      <div style={{
+        width: '100%',
+        maxWidth: '992px',
+        aspectRatio: '992 / 416',
+        padding: '0 8px',
+        boxSizing: 'border-box',
+      }}>
+        <canvas
+          ref={canvasRef}
+          style={{
+            width: '100%',
+            height: '100%',
+            border: '2px solid #333',
+            borderRadius: '4px',
+            imageRendering: 'pixelated',
+          }}
+        />
+      </div>
+
+      {isTouchDevice && engineRef.current && (
+        <TouchGamepad
+          onMove={(dir) => engineRef.current?.startMove(dir)}
+          onStop={() => engineRef.current?.stopMove()}
+          onBomb={() => engineRef.current?.triggerBomb()}
+        />
+      )}
 
       {gameStatus === 'finished' && (
         <button

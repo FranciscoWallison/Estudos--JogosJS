@@ -10,7 +10,9 @@ import {
   toggleReady,
   changeCharacter,
   startGame,
+  updateRoomOptions,
 } from '@/lib/lobbyService';
+import { RoomOptions } from '@/shared/types';
 import { MIN_PLAYERS } from '@/shared/constants';
 
 export default function Room() {
@@ -36,7 +38,7 @@ export default function Room() {
         }
         setRoom(data);
 
-        // Se o jogo iniciou, salvar lista de jogadores e navegar para a tela do jogo
+        // Se o jogo iniciou, salvar lista de jogadores e opcoes, navegar para a tela do jogo
         if (data.info.status === 'playing') {
           if (data.players) {
             const expectedPlayers = Object.entries(data.players).map(([id, p]) => ({
@@ -45,6 +47,9 @@ export default function Room() {
               characterIndex: p.characterIndex,
             }));
             sessionStorage.setItem('expectedPlayers', JSON.stringify(expectedPlayers));
+          }
+          if (data.info.options) {
+            sessionStorage.setItem('roomOptions', JSON.stringify(data.info.options));
           }
           router.push(`/game/${roomId}`);
         }
@@ -84,6 +89,22 @@ export default function Room() {
     } catch (err: any) {
       console.error('Erro ao trocar personagem:', err);
       setError(err.message || 'Erro ao trocar personagem.');
+    }
+  };
+
+  const handleToggleOption = async (key: keyof RoomOptions) => {
+    if (!isHost || !roomId || typeof roomId !== 'string' || !room) return;
+    const defaults: RoomOptions = { blocks: true, items: true, monsters: false };
+    const currentVal = room.info.options?.[key] ?? defaults[key];
+    const updates: Partial<RoomOptions> = { [key]: !currentVal };
+    // If turning blocks OFF, also turn items OFF (items depend on blocks)
+    if (key === 'blocks' && currentVal) {
+      updates.items = false;
+    }
+    try {
+      await updateRoomOptions(roomId, updates);
+    } catch (err: any) {
+      setError(err.message || 'Erro ao atualizar opcoes.');
     }
   };
 
@@ -164,6 +185,7 @@ export default function Room() {
 
   const currentPlayer = user ? room.players?.[user.uid] : null;
   const currentCharIndex = currentPlayer?.characterIndex || 0;
+  const options: RoomOptions = room.info.options || { blocks: true, items: true, monsters: false };
 
   return (
     <div style={{
@@ -171,8 +193,10 @@ export default function Room() {
       flexDirection: 'column',
       alignItems: 'center',
       gap: '20px',
-      paddingTop: '40px',
+      padding: '40px 16px 24px',
       minHeight: '100vh',
+      width: '100%',
+      boxSizing: 'border-box',
     }}>
       <h1 style={{ fontSize: '28px', color: '#ffd700', margin: 0 }}>{room.info.name}</h1>
 
@@ -225,7 +249,75 @@ export default function Room() {
         <CharacterSelector selected={currentCharIndex} onSelect={handleChangeCharacter} />
       </div>
 
-      <div style={{ display: 'flex', gap: '12px' }}>
+      <div style={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '10px',
+        background: '#111',
+        padding: '20px',
+        borderRadius: '8px',
+        border: '1px solid #333',
+        width: '100%',
+        maxWidth: '400px',
+      }}>
+        <label style={{ color: '#aaa', fontSize: '14px', marginBottom: '4px' }}>
+          Opcoes da partida{!isHost ? ' (definidas pelo host)' : ''}:
+        </label>
+        {([
+          { key: 'blocks' as const, label: 'Blocos', desc: 'Blocos destrutiveis no mapa' },
+          { key: 'items' as const, label: 'Itens', desc: 'Power-ups ao destruir blocos' },
+          { key: 'monsters' as const, label: 'Monstros', desc: 'Inimigos controlados por IA' },
+        ]).map(opt => {
+          const isOn = options[opt.key];
+          const disabled = !isHost || (opt.key === 'items' && !options.blocks);
+          return (
+            <div
+              key={opt.key}
+              onClick={() => !disabled && handleToggleOption(opt.key)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '10px 14px',
+                background: disabled ? '#0a0a0a' : '#1a1a1a',
+                borderRadius: '6px',
+                cursor: disabled ? 'default' : 'pointer',
+                opacity: disabled && !isHost ? 0.7 : 1,
+                border: `1px solid ${isOn ? '#4caf50' : '#333'}`,
+              }}
+            >
+              <div>
+                <div style={{ color: disabled && opt.key === 'items' ? '#555' : '#ddd', fontSize: '14px', fontWeight: 'bold' }}>
+                  {opt.label}
+                </div>
+                <div style={{ color: '#777', fontSize: '12px' }}>{opt.desc}</div>
+              </div>
+              <div style={{
+                width: '44px',
+                height: '24px',
+                borderRadius: '12px',
+                background: isOn ? '#4caf50' : '#333',
+                position: 'relative',
+                transition: 'background 0.2s',
+                opacity: disabled && opt.key === 'items' && !options.blocks ? 0.4 : 1,
+              }}>
+                <div style={{
+                  width: '20px',
+                  height: '20px',
+                  borderRadius: '50%',
+                  background: 'white',
+                  position: 'absolute',
+                  top: '2px',
+                  left: isOn ? '22px' : '2px',
+                  transition: 'left 0.2s',
+                }} />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', justifyContent: 'center' }}>
         <button
           onClick={handleLeave}
           style={{

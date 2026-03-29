@@ -1,7 +1,8 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import CharacterSelector from '@/components/CharacterSelector';
 import { LocalGameController } from '@/client/LocalGameController';
+import TouchGamepad from '@/components/TouchGamepad';
 import charactersConfig from '@/data/data.json';
 import bombConfig from '@/data/bombs.json';
 
@@ -16,6 +17,11 @@ export default function OfflinePage() {
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const controllerRef = useRef<LocalGameController | null>(null);
+  const [isTouchDevice, setIsTouchDevice] = useState(false);
+
+  useEffect(() => {
+    setIsTouchDevice('ontouchstart' in window);
+  }, []);
 
   const handleStart = useCallback(() => {
     if (!canvasRef.current) return;
@@ -62,8 +68,10 @@ export default function OfflinePage() {
       flexDirection: 'column',
       alignItems: 'center',
       gap: '16px',
-      paddingTop: '24px',
+      padding: '24px 16px',
       minHeight: '100vh',
+      width: '100%',
+      boxSizing: 'border-box',
     }}>
       <h1 style={{
         fontSize: '36px',
@@ -158,15 +166,33 @@ export default function OfflinePage() {
         </div>
       )}
 
-      <canvas
-        ref={canvasRef}
-        style={{
-          display: phase === 'setup' ? 'none' : 'block',
-          border: '2px solid #333',
-          borderRadius: '4px',
-          imageRendering: 'pixelated',
-        }}
-      />
+      <div style={{
+        display: phase === 'setup' ? 'none' : 'block',
+        width: '100%',
+        maxWidth: '992px',
+        aspectRatio: '992 / 416',
+        padding: '0 8px',
+        boxSizing: 'border-box',
+      }}>
+        <canvas
+          ref={canvasRef}
+          style={{
+            width: '100%',
+            height: '100%',
+            border: '2px solid #333',
+            borderRadius: '4px',
+            imageRendering: 'pixelated',
+          }}
+        />
+      </div>
+
+      {isTouchDevice && phase === 'playing' && controllerRef.current && (
+        <TouchGamepad
+          onMove={(dir) => controllerRef.current?.startMove(dir)}
+          onStop={() => controllerRef.current?.stopMove()}
+          onBomb={() => controllerRef.current?.triggerBomb()}
+        />
+      )}
 
       {phase === 'finished' && (
         <div style={{
