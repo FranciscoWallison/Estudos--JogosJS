@@ -105,10 +105,10 @@ function removeColorFromSprite(
   return { ...sprite, processedCanvas: canvas };
 }
 
-function buildSpriteSheet(img: HTMLImageElement, frames: SelectedSprite[], cols: number): HTMLCanvasElement {
+function buildSpriteSheet(img: HTMLImageElement, frames: SelectedSprite[], cols: number, scale = 1): HTMLCanvasElement {
   const rows = Math.ceil(frames.length / cols);
-  const fw = frames[0]?.w || 16;
-  const fh = frames[0]?.h || 16;
+  const fw = (frames[0]?.w || 16) * scale;
+  const fh = (frames[0]?.h || 16) * scale;
   const canvas = document.createElement('canvas');
   canvas.width = cols * fw;
   canvas.height = rows * fh;
@@ -203,6 +203,7 @@ export default function SpriteTool() {
 
   // --- Export state ---
   const [exportCols, setExportCols] = useState(0); // 0 = horizontal (all in one row)
+  const [exportScale, setExportScale] = useState(1);
   const exportCanvasRef = useRef<HTMLCanvasElement>(null);
 
   // --- Viewer state ---
@@ -415,6 +416,22 @@ export default function SpriteTool() {
     setZoom(newZoom);
   }, [zoom, pan]);
 
+  // --- Export individual sprite ---
+  const exportSelectedSprite = (scale: number) => {
+    const img = imageRef.current;
+    if (!img || !selected) return;
+    const c = document.createElement('canvas');
+    c.width = selected.w * scale;
+    c.height = selected.h * scale;
+    const ctx = c.getContext('2d')!;
+    ctx.imageSmoothingEnabled = false;
+    drawSpriteToCtx(ctx, img, selected, 0, 0, c.width, c.height);
+    const link = document.createElement('a');
+    link.download = `sprite_${selected.x}_${selected.y}_${scale}x.png`;
+    link.href = c.toDataURL('image/png');
+    link.click();
+  };
+
   // --- Frame list management ---
   const addToList = () => {
     if (selected) setSelectedList(prev => [...prev, selected]);
@@ -581,9 +598,9 @@ export default function SpriteTool() {
     if (!canvas || !img || !imageLoaded || selectedList.length === 0) return;
 
     const cols = exportCols > 0 ? exportCols : selectedList.length;
-    const sheet = buildSpriteSheet(img, selectedList, cols);
+    const sheet = buildSpriteSheet(img, selectedList, cols, exportScale);
 
-    const previewScale = 3;
+    const previewScale = Math.max(1, Math.floor(3 / exportScale));
     canvas.width = sheet.width * previewScale;
     canvas.height = sheet.height * previewScale;
 
@@ -591,15 +608,15 @@ export default function SpriteTool() {
     ctx.imageSmoothingEnabled = false;
     drawCheckerBg(ctx, canvas.width, canvas.height, 6);
     ctx.drawImage(sheet, 0, 0, canvas.width, canvas.height);
-  }, [activeTab, selectedList, exportCols, imageLoaded]);
+  }, [activeTab, selectedList, exportCols, exportScale, imageLoaded]);
 
   const downloadExport = () => {
     const img = imageRef.current;
     if (!img || selectedList.length === 0) return;
     const cols = exportCols > 0 ? exportCols : selectedList.length;
-    const sheet = buildSpriteSheet(img, selectedList, cols);
+    const sheet = buildSpriteSheet(img, selectedList, cols, exportScale);
     const link = document.createElement('a');
-    link.download = 'spritesheet.png';
+    link.download = `spritesheet_${exportScale}x.png`;
     link.href = sheet.toDataURL('image/png');
     link.click();
   };
@@ -809,6 +826,14 @@ export default function SpriteTool() {
                     <button onClick={addToList} style={{ ...btnAccent, flex: 1 }}>+ Adicionar</button>
                     <button onClick={copyJSON} style={{ ...btnStyle, flex: 1 }}>Copiar JSON</button>
                   </div>
+                  <div style={{ marginTop: '8px' }}>
+                    <label style={{ ...labelStyle, marginBottom: '4px' }}>Exportar PNG:</label>
+                    <div style={{ display: 'flex', gap: '2px', flexWrap: 'wrap' }}>
+                      {[1, 2, 4, 8, 16, 32].map(s => (
+                        <button key={s} onClick={() => exportSelectedSprite(s)} style={{ ...btnStyle, padding: '3px 6px', fontSize: '11px' }}>{s}x</button>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               )}
               {selectedList.length > 0 && (
@@ -959,11 +984,17 @@ export default function SpriteTool() {
                 {/* Export section */}
                 <div style={{ background: '#111', borderRadius: '8px', border: '1px solid #333', padding: '12px' }}>
                   <h3 style={{ margin: '0 0 10px 0', fontSize: '14px', color: '#ffd700' }}>Exportar Sprite Sheet</h3>
-                  <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginBottom: '12px' }}>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', alignItems: 'center', marginBottom: '12px' }}>
                     <label style={{ ...labelStyle, marginBottom: 0 }}>Layout:</label>
                     <button onClick={() => setExportCols(0)} style={exportCols === 0 ? btnActiveStyle : btnStyle}>Horizontal</button>
                     <label style={{ ...labelStyle, marginBottom: 0 }}>Grid cols:</label>
                     <input type="number" value={exportCols} onChange={(e) => setExportCols(Math.max(0, parseInt(e.target.value) || 0))} style={{ ...inputStyle, width: '50px' }} min={0} />
+                    <label style={{ ...labelStyle, marginBottom: 0 }}>Escala:</label>
+                    <div style={{ display: 'flex', gap: '2px' }}>
+                      {[1, 2, 4, 8, 16, 32].map(s => (
+                        <button key={s} onClick={() => setExportScale(s)} style={exportScale === s ? btnActiveStyle : btnStyle}>{s}x</button>
+                      ))}
+                    </div>
                     <button onClick={downloadExport} style={{ ...btnAccent, fontWeight: 'bold' }}>Download PNG</button>
                   </div>
                   <div style={{ padding: '8px', background: '#0a0a0a', borderRadius: '4px', display: 'flex', justifyContent: 'center' }}>
