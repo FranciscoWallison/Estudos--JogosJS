@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from '@/contexts/AuthContext';
 import RoomCard from '@/components/RoomCard';
-import { RoomData, subscribeToRoomList, createRoom, joinRoom } from '@/lib/lobbyService';
+import { RoomData, subscribeToRoomList, createRoom, joinRoom, quickMatch } from '@/lib/lobbyService';
 import { MAX_PLAYERS } from '@/shared/constants';
 
 export default function Lobby() {
@@ -13,10 +13,12 @@ export default function Lobby() {
   const [roomName, setRoomName] = useState('');
   const [maxPlayers, setMaxPlayers] = useState(4);
   const [creating, setCreating] = useState(false);
+  const [joiningId, setJoiningId] = useState<string | null>(null);
+  const [quickMatching, setQuickMatching] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const playerName = typeof window !== 'undefined' ? sessionStorage.getItem('playerName') || 'Jogador' : 'Jogador';
-  const characterIndex = typeof window !== 'undefined' ? parseInt(sessionStorage.getItem('characterIndex') || '0') : 0;
+  const playerName = typeof window !== 'undefined' ? localStorage.getItem('playerName') || 'Jogador' : 'Jogador';
+  const characterIndex = typeof window !== 'undefined' ? parseInt(localStorage.getItem('characterIndex') || '0') : 0;
 
   useEffect(() => {
     const unsubscribe = subscribeToRoomList(setRooms, (err) => setError(err));
@@ -43,15 +45,33 @@ export default function Lobby() {
   };
 
   const handleJoinRoom = async (roomId: string) => {
-    if (!user) return;
+    if (!user || joiningId) return;
+    setJoiningId(roomId);
     try {
       const success = await joinRoom(user.uid, playerName, roomId, characterIndex);
       if (success) {
         router.push(`/room/${roomId}`);
+      } else {
+        setError('Sala cheia ou nao disponivel. Tente outra sala.');
       }
     } catch (err: any) {
       console.error('Erro ao entrar na sala:', err);
       setError(err.message || 'Erro ao entrar na sala.');
+    } finally {
+      setJoiningId(null);
+    }
+  };
+
+  const handleQuickMatch = async () => {
+    if (!user || quickMatching) return;
+    setQuickMatching(true);
+    try {
+      const roomId = await quickMatch(user.uid, playerName, characterIndex);
+      router.push(`/room/${roomId}`);
+    } catch (err: any) {
+      console.error('Erro no quick match:', err);
+      setError(err.message || 'Erro ao buscar partida.');
+      setQuickMatching(false);
     }
   };
 
@@ -102,7 +122,7 @@ export default function Lobby() {
         </div>
       )}
 
-      <div style={{ display: 'flex', gap: '12px' }}>
+      <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', justifyContent: 'center' }}>
         <button
           onClick={() => router.push('/')}
           style={{
@@ -116,6 +136,22 @@ export default function Lobby() {
           }}
         >
           Voltar
+        </button>
+        <button
+          onClick={handleQuickMatch}
+          disabled={quickMatching}
+          style={{
+            padding: '10px 24px',
+            background: quickMatching ? '#444' : '#2196f3',
+            color: 'white',
+            border: 'none',
+            borderRadius: '6px',
+            cursor: quickMatching ? 'not-allowed' : 'pointer',
+            fontWeight: 'bold',
+            fontSize: '14px',
+          }}
+        >
+          {quickMatching ? 'Buscando...' : 'Quick Match'}
         </button>
         <button
           onClick={() => setShowCreateForm(!showCreateForm)}
@@ -210,7 +246,7 @@ export default function Lobby() {
           </div>
         ) : (
           rooms.map((room) => (
-            <RoomCard key={room.id} room={room} onJoin={handleJoinRoom} />
+            <RoomCard key={room.id} room={room} onJoin={handleJoinRoom} joining={joiningId === room.id} />
           ))
         )}
       </div>

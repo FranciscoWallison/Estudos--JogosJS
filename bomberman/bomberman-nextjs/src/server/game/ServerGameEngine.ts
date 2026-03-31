@@ -215,6 +215,7 @@ export class ServerGameEngine {
   }
 
   pushInput(playerId: string, input: PlayerInput): void {
+    if (this.state.status !== 'playing') return;
     const queue = this.inputQueues.get(playerId);
     if (queue) queue.push(input);
   }
@@ -271,6 +272,7 @@ export class ServerGameEngine {
   }
 
   private tick(): void {
+    try {
     this.state.tick++;
 
     // 1. Process inputs
@@ -339,6 +341,9 @@ export class ServerGameEngine {
     // 10. Send snapshot at reduced rate
     if (this.state.tick % SNAPSHOT_INTERVAL_TICKS === 0) {
       this.onSnapshot(this.getStateCopy());
+    }
+    } catch (err) {
+      console.error('[GameEngine] Erro no tick:', err);
     }
   }
 
@@ -678,6 +683,11 @@ export class ServerGameEngine {
       player.isMoving = false;
     }
     this.inputQueues.delete(playerId);
+
+    // Verificar condicao de vitoria apos remocao
+    if (this.state.status === 'playing') {
+      this.checkWinCondition();
+    }
   }
 
   private getStateCopy(): GameState {

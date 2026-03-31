@@ -83,8 +83,8 @@ export default function Home() {
     if (!user || !playerName.trim()) return;
     setJoining(true);
     try {
-      sessionStorage.setItem('playerName', playerName.trim());
-      sessionStorage.setItem('characterIndex', String(characterIndex));
+      localStorage.setItem('playerName', playerName.trim());
+      localStorage.setItem('characterIndex', String(characterIndex));
       const roomId = await quickMatch(user.uid, playerName.trim(), characterIndex);
       router.push(`/room/${roomId}`);
     } catch (err) {
@@ -95,8 +95,8 @@ export default function Home() {
 
   const handleLobby = () => {
     if (!playerName.trim()) return;
-    sessionStorage.setItem('playerName', playerName.trim());
-    sessionStorage.setItem('characterIndex', String(characterIndex));
+    localStorage.setItem('playerName', playerName.trim());
+    localStorage.setItem('characterIndex', String(characterIndex));
     router.push('/lobby');
   };
 

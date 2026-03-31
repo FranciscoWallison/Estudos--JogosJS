@@ -22,8 +22,9 @@ export default function Room() {
   const [room, setRoom] = useState<RoomData | null>(null);
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
-  const playerName = typeof window !== 'undefined' ? sessionStorage.getItem('playerName') || 'Jogador' : 'Jogador';
+  const playerName = typeof window !== 'undefined' ? localStorage.getItem('playerName') || 'Jogador' : 'Jogador';
 
   useEffect(() => {
     if (!roomId || typeof roomId !== 'string') return;
@@ -46,10 +47,10 @@ export default function Room() {
               name: p.name,
               characterIndex: p.characterIndex,
             }));
-            sessionStorage.setItem('expectedPlayers', JSON.stringify(expectedPlayers));
+            localStorage.setItem('expectedPlayers', JSON.stringify(expectedPlayers));
           }
           if (data.info.options) {
-            sessionStorage.setItem('roomOptions', JSON.stringify(data.info.options));
+            localStorage.setItem('roomOptions', JSON.stringify(data.info.options));
           }
           router.push(`/game/${roomId}`);
         }
@@ -85,7 +86,7 @@ export default function Room() {
     if (!user || !roomId || typeof roomId !== 'string') return;
     try {
       await changeCharacter(user.uid, roomId, index);
-      sessionStorage.setItem('characterIndex', String(index));
+      localStorage.setItem('characterIndex', String(index));
     } catch (err: any) {
       console.error('Erro ao trocar personagem:', err);
       setError(err.message || 'Erro ao trocar personagem.');
@@ -106,6 +107,14 @@ export default function Room() {
     } catch (err: any) {
       setError(err.message || 'Erro ao atualizar opcoes.');
     }
+  };
+
+  const handleCopyLink = () => {
+    const url = typeof window !== 'undefined' ? window.location.href : '';
+    navigator.clipboard.writeText(url).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
   };
 
   const handleStartGame = async () => {
@@ -198,7 +207,24 @@ export default function Room() {
       width: '100%',
       boxSizing: 'border-box',
     }}>
-      <h1 style={{ fontSize: '28px', color: '#ffd700', margin: 0 }}>{room.info.name}</h1>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <h1 style={{ fontSize: '28px', color: '#ffd700', margin: 0 }}>{room.info.name}</h1>
+        <button
+          onClick={handleCopyLink}
+          style={{
+            padding: '6px 14px',
+            background: copied ? '#4caf50' : '#333',
+            color: copied ? '#fff' : '#aaa',
+            border: 'none',
+            borderRadius: '6px',
+            cursor: 'pointer',
+            fontSize: '12px',
+            transition: 'background 0.2s',
+          }}
+        >
+          {copied ? 'Copiado!' : 'Copiar link'}
+        </button>
+      </div>
 
       {error && (
         <div style={{

@@ -192,28 +192,33 @@ export async function quickMatch(
  * Sair de uma sala
  */
 export async function leaveRoom(userId: string, roomId: string): Promise<void> {
-  const roomRef = ref(database, `rooms/${roomId}`);
-  const snapshot = await get(roomRef);
+  try {
+    const roomRef = ref(database, `rooms/${roomId}`);
+    const snapshot = await withTimeout(get(roomRef), 'ler sala ao sair');
 
-  if (!snapshot.exists()) return;
+    if (!snapshot.exists()) return;
 
-  const roomData = snapshot.val();
-  const playerRef = ref(database, `rooms/${roomId}/players/${userId}`);
-  await remove(playerRef);
+    const roomData = snapshot.val();
+    const playerRef = ref(database, `rooms/${roomId}/players/${userId}`);
+    await withTimeout(remove(playerRef), 'remover jogador da sala');
 
-  // Verificar se a sala ficou vazia
-  const playersSnapshot = await get(ref(database, `rooms/${roomId}/players`));
-  if (!playersSnapshot.exists() || Object.keys(playersSnapshot.val()).length === 0) {
-    await remove(roomRef);
-    return;
-  }
+    // Verificar se a sala ficou vazia
+    const playersSnapshot = await withTimeout(get(ref(database, `rooms/${roomId}/players`)), 'verificar jogadores');
+    if (!playersSnapshot.exists() || Object.keys(playersSnapshot.val()).length === 0) {
+      await withTimeout(remove(roomRef), 'remover sala vazia');
+      return;
+    }
 
-  // Transferir host se necessario
-  if (roomData.info.hostId === userId) {
-    const remainingPlayers = Object.keys(playersSnapshot.val());
-    await update(ref(database, `rooms/${roomId}/info`), {
-      hostId: remainingPlayers[0],
-    });
+    // Transferir host se necessario
+    if (roomData.info.hostId === userId) {
+      const remainingPlayers = Object.keys(playersSnapshot.val());
+      await withTimeout(
+        update(ref(database, `rooms/${roomId}/info`), { hostId: remainingPlayers[0] }),
+        'transferir host'
+      );
+    }
+  } catch (err) {
+    handleDatabaseError(err, 'sair da sala');
   }
 }
 
@@ -221,13 +226,17 @@ export async function leaveRoom(userId: string, roomId: string): Promise<void> {
  * Alternar estado pronto
  */
 export async function toggleReady(userId: string, roomId: string): Promise<void> {
-  const playerRef = ref(database, `rooms/${roomId}/players/${userId}`);
-  const snapshot = await get(playerRef);
+  try {
+    const playerRef = ref(database, `rooms/${roomId}/players/${userId}`);
+    const snapshot = await withTimeout(get(playerRef), 'ler estado do jogador');
 
-  if (!snapshot.exists()) return;
+    if (!snapshot.exists()) return;
 
-  const currentReady = snapshot.val().isReady;
-  await update(playerRef, { isReady: !currentReady });
+    const currentReady = snapshot.val().isReady;
+    await withTimeout(update(playerRef, { isReady: !currentReady }), 'alterar pronto');
+  } catch (err) {
+    handleDatabaseError(err, 'alterar estado pronto');
+  }
 }
 
 /**
@@ -238,8 +247,12 @@ export async function changeCharacter(
   roomId: string,
   characterIndex: number
 ): Promise<void> {
-  const playerRef = ref(database, `rooms/${roomId}/players/${userId}`);
-  await update(playerRef, { characterIndex });
+  try {
+    const playerRef = ref(database, `rooms/${roomId}/players/${userId}`);
+    await withTimeout(update(playerRef, { characterIndex }), 'trocar personagem');
+  } catch (err) {
+    handleDatabaseError(err, 'trocar personagem');
+  }
 }
 
 /**
@@ -261,18 +274,28 @@ export async function updateRoomOptions(
  * Iniciar jogo (host only)
  */
 export async function startGame(roomId: string): Promise<void> {
-  await update(ref(database, `rooms/${roomId}/info`), {
-    status: 'playing',
-  });
+  try {
+    await withTimeout(
+      update(ref(database, `rooms/${roomId}/info`), { status: 'playing' }),
+      'iniciar jogo'
+    );
+  } catch (err) {
+    handleDatabaseError(err, 'iniciar jogo');
+  }
 }
 
 /**
  * Marcar jogo como finalizado
  */
 export async function finishGame(roomId: string): Promise<void> {
-  await update(ref(database, `rooms/${roomId}/info`), {
-    status: 'finished',
-  });
+  try {
+    await withTimeout(
+      update(ref(database, `rooms/${roomId}/info`), { status: 'finished' }),
+      'finalizar jogo'
+    );
+  } catch (err) {
+    handleDatabaseError(err, 'finalizar jogo');
+  }
 }
 
 /**

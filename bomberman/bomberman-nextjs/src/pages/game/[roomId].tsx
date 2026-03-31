@@ -29,8 +29,8 @@ export default function GamePage() {
     setIsTouchDevice('ontouchstart' in window);
   }, []);
 
-  const playerName = typeof window !== 'undefined' ? sessionStorage.getItem('playerName') || 'Jogador' : 'Jogador';
-  const characterIndex = typeof window !== 'undefined' ? parseInt(sessionStorage.getItem('characterIndex') || '0') : 0;
+  const playerName = typeof window !== 'undefined' ? localStorage.getItem('playerName') || 'Jogador' : 'Jogador';
+  const characterIndex = typeof window !== 'undefined' ? parseInt(localStorage.getItem('characterIndex') || '0') : 0;
 
   // Conectar socket quando pagina carrega
   useEffect(() => {
@@ -56,14 +56,14 @@ export default function GamePage() {
       // Ler lista de jogadores esperados (salva pelo room/[id].tsx)
       let expectedPlayers: { id: string; name: string; characterIndex: number }[] = [];
       try {
-        const stored = sessionStorage.getItem('expectedPlayers');
+        const stored = localStorage.getItem('expectedPlayers');
         if (stored) expectedPlayers = JSON.parse(stored);
       } catch {}
 
       // Ler opcoes da sala
       let roomOptions: RoomOptions = { blocks: true, items: true, monsters: false };
       try {
-        const stored = sessionStorage.getItem('roomOptions');
+        const stored = localStorage.getItem('roomOptions');
         if (stored) roomOptions = JSON.parse(stored);
       } catch {}
 
